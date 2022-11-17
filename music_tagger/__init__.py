@@ -29,6 +29,10 @@ def main():
 
     path = Path(args.file)
 
+    if not path.exists():
+        print(f"{Color.BOLD}{Color.WARNING}No such file, try again.{Color.ENDC}")
+        exit(1)
+
     if path.is_dir():
         for file in path.iterdir():
             if file.suffix not in AUDIO_FORMATS: continue
@@ -45,20 +49,25 @@ def main():
 
 def identify(file: MusicFile):
     print(f"\n{Color.BOLD}{file.to_string()}{Color.ENDC}")
+    best_matches = {}
     # TODO: Shazam
-    # TODO: Spotify
 
-    # Soundcloud
-    sc_matches: dict = file.match_soundcloud()
+    best_matches.update(file.match_spotify())
+    best_matches.update(file.match_soundcloud())
 
-    for sc_match, sc_matchrate in sc_matches.items():
+    # Selection
+    i = 1
+    for sc_match, sc_matchrate in best_matches.items():
+        print(f"{i}. ", end='')
         if sc_matchrate > 0.8: print(Color.OKGREEN, end='')
         elif sc_matchrate < 0.5: print(Color.FAIL, end='')
         else: print(Color.WARNING, end='')
         print(f"{sc_matchrate:.1%}:{Color.ENDC} {sc_match}")
-        if sc_matchrate > 0.85: return sc_match
-        choice = input("y/n: ")
-        if 'y' in choice.lower(): return sc_match
+        # if sc_matchrate > 0.85: return sc_match
+        i += 1
+
+    choice = input("Select best match: ")
+    if choice.strip().isdigit(): return list(best_matches.values())[int(choice.strip()) - 1]
 
     return None
 

@@ -1,4 +1,5 @@
 import re
+from re import Pattern
 from os.path import join, expanduser
 
 FOLDER = join(expanduser('~'), ".music-tagger")
@@ -9,8 +10,9 @@ AUDIO_FORMATS = [
     ".mp3"
 ]
 
-YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
-BRACKET_REGEX = re.compile(r"[*(\[](.*?)(?:[*)\]]|$)", re.I)
+# REGEXES
+def __list_to_regex(list: list) -> Pattern:
+    return re.compile(r"\b(" + r"|".join(list) + r")\b", re.I)
 
 __GENRES = [
     "Acid Jazz",
@@ -97,20 +99,18 @@ __GENRES = [
     "Tropical House",
     "Vocal",
 ]
-GENRE_REGEX = re.compile(r"\b(" + r"|".join(__GENRES) + r")\b", re.I)
-
 
 __VERSIONS = [
     "Bootleg",
     "Edit",
     "Flip",
     "Mashup",
+    "Mix",
     "Remaster",
     "Remastered",
     "Remix",
     "Rework"
 ]
-VERSION_REGEX = re.compile(r"\b(" + r"|".join(__VERSIONS) + r")\b", re.I)
 
 __IGNORE = [
     "DL",
@@ -120,10 +120,26 @@ __IGNORE = [
     "Support",
     "Supported"
 ]
-IGNORE_REGEX = re.compile(r"\b(" + r"|".join(__IGNORE) + r")\b", re.I)
 
 __FEATURING = [
     "Feat",
     "Featuring",
     "Ft"
 ]
+
+__EXTENDED = [
+    "Extended",
+    "Original"
+]
+
+ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|x|&)\s+", re.I)
+YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
+BRACKET_REGEX = re.compile(r"[*(\[](.*?)(?:[*)\]]|$)", re.I)
+DASH_SPLITTER_REGEX = re.compile(r"\s+-\s+")
+WITH_REGEX = re.compile(r"\b(with)\b", re.I)
+
+EXTENDED_REGEX = __list_to_regex(__EXTENDED)
+FEAT_REGEX = __list_to_regex(__FEATURING)
+GENRE_REGEX = __list_to_regex(__GENRES)
+IGNORE_REGEX = __list_to_regex(__IGNORE)
+VERSION_REGEX = __list_to_regex(__VERSIONS)

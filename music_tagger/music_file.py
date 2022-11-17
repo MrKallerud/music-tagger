@@ -7,7 +7,8 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3NoHeaderError
 
 from music_tagger.metadata import MetadataParser, embed_artwork, embed_metadata
-from music_tagger.soundcloud import SoundCloudAPI, SoundCloudMetadata
+from music_tagger.soundcloud import SoundCloudAPI, SoundCloudTrack
+from music_tagger.spotify import SpotifyAPI, SpotifyTrack
 
 
 class MusicFile:
@@ -44,7 +45,20 @@ class MusicFile:
                 MusicFile.__compare_strings(self.get_filename(), result.title),
                 MusicFile.__compare_strings(self.to_string(), result.title)])
             if ratio > 0.95: return {result: ratio}
-            if ratio < 0.4: continue
+            if ratio < 0.5: continue
+            matches[result] = ratio
+        
+        return dict(sorted(matches.items(), key=lambda item: item[1], reverse = True))
+
+    def match_spotify(self) -> dict:
+        matches = {}
+
+        results = SpotifyAPI.search(self.to_string())
+        for result in results:
+            ratio = max([
+                MusicFile.__compare_strings(self.get_filename(), result.to_string()),
+                MusicFile.__compare_strings(self.to_string(), result.to_string())])
+            if ratio < 0.6: continue
             matches[result] = ratio
         
         return dict(sorted(matches.items(), key=lambda item: item[1], reverse = True))
@@ -55,29 +69,47 @@ class MusicFile:
         self.path = Path(self.path.with_suffix(f".{format}"))
         return self
 
+    def rename(self, filename: str):
+        self.path = self.path.rename(os.path.join(self.path.parent, filename))
+
     def write_metadata(self, match, overwrite: bool = True):
-        if isinstance(match, SoundCloudMetadata):
+        if isinstance(match, SoundCloudTrack):
             parser = MetadataParser(match.title)
-            meta_dict = parser.get_metadata_dict()
 
-            if not meta_dict.get("artist"):
-                meta_dict["artist"] = match.user.get_name()
-                meta_dict["albumartist"] = match.user.get_name()
+            if len(parser.artists) == 0:
+                parser.artists.append(match.user.get_name())
             
-            if not meta_dict.get("year"): meta_dict["year"] = match.get_year()
-            if not meta_dict.get("genre"): meta_dict["genre"] = match.genre
+            if not parser.year: parser.year = match.get_year()
+            if not parser.genre: parser.genre = match.genre
 
+            meta_dict = parser.get_metadata_dict()
             embed_metadata(self.path, overwrite, **meta_dict)
             embed_artwork(self.path, match.get_artwork_url(), overwrite = overwrite)
 
             bitrate = mutagen.File(self.path).info.bitrate / 1000
-            if "hypeedit" in match.purchase_url and bitrate < 320:
+            if match.purchase_url and "hypeddit" in match.purchase_url and bitrate < 320:
                 print(f"File is low quality ({bitrate} kbps)")
-                print(f"Consider using ez-hype to download higher quality:\nez-hype {match.url}")
+                print(f"Consider running the following command to download higher quality:")
+                print(f"ez-hype {match.url}")
 
-            filename = parser.get_artists() + " - " + parser.get_title() + self.get_ext()
-            self.path = self.path.rename(os.path.join(self.path.parent, filename))
+            self.rename(parser.get_artists() + " - " + parser.get_title() + self.get_ext())
 
+        if isinstance(match, SpotifyTrack):
+            embed_artwork(self.path, match.album.artwork_url)
+            embed_metadata(self.path, overwrite, 
+                title = match.get_title(),
+                album = match.album.name,
+                artist = match.get_artists(),
+                albumartist = match.album.artists[0].name,
+                year = match.album.get_year(),
+                explicit = match.explicit,
+                isrc = match.isrc,
+                tempo = match.get_audio_features().get_tempo(),
+                key = match.get_audio_features().get_musical_key(),
+                comment = match.get_audio_features().get_camelot_key(),
+                popularity = match.popularity
+            )
+            self.rename(f"{match.get_artists()} - {match.get_title()}{self.get_ext()}")
 
     @staticmethod
     def __compare_strings(str1: str, str2: str) -> float:
@@ -90,8 +122,12 @@ class MusicFile:
     #     return len(set1.intersection(set2)) / max(len(list1), len(list2))
 
     def to_string(self) -> str:
-        try: return self.metadata["artist"][0] + " - " + self.metadata["title"][0]
+        ret = ""
+        try: ret += self.metadata["artist"][0] + " - " + self.metadata["title"][0]
         except (IndexError, KeyError): pass
+        try: ret += " (" + self.metadata["album"][0] + ")"
+        except (IndexError, KeyError): pass
+        if ret != "": return ret
         return self.get_filename()
 
     def __repr__(self) -> str:

@@ -59,6 +59,7 @@ class MetadataParser:
         self.__filename = self.__filename.replace(self.title, "")
 
     def __parse_artists(self):
+        print(self.__filename)
         self.artists = self.__split_artists(self.__filename.split(self.__DASH_SPLITTER)[0].strip())
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
@@ -108,6 +109,7 @@ class MetadataParser:
                 self.subtitle = match.strip(self.__STRIP_BRACKETS)
 
             self.__filename = self.__filename.replace(match, "")
+            self.__filename = re.sub(r"[(\[].*?[)\]]", "", self.__filename)
 
     def __parse_year(self):
         try:
@@ -144,7 +146,8 @@ class MetadataParser:
         return meta_dict
 
     # GET PRETTY STRINGS
-    def __pretty_list(self, list: list[str]) -> str:
+    @staticmethod
+    def pretty_list(list: list[str]) -> str:
         ret = ""
         for i, string in enumerate(list):
             ret += string
@@ -164,7 +167,7 @@ class MetadataParser:
 
         if len(self.remixers.keys()) > 0:
             for kind, remixers in self.remixers.items():
-                ret += " " + brackets[0] + self.__pretty_list(remixers) + " "
+                ret += " " + brackets[0] + self.pretty_list(remixers) + " "
                 if self.is_extended: ret += "Extended "
                 ret += kind + brackets[1]
                 brackets = "[]"
@@ -184,16 +187,16 @@ class MetadataParser:
         ret = self.title
 
         if len(self.withs) > 0:
-            ret += " " + brackets[0] + "with " + self.__pretty_list(self.withs) + brackets[1]
+            ret += " " + brackets[0] + "with " + self.pretty_list(self.withs) + brackets[1]
             brackets = "[]"
 
         if len(self.features) > 0:
-            ret += " " + brackets[0] + "feat. " + self.__pretty_list(self.features) + brackets[1]
+            ret += " " + brackets[0] + "feat. " + self.pretty_list(self.features) + brackets[1]
             brackets = "[]"
 
         if len(self.remixers.keys()) > 0:
             for kind, remixers in self.remixers.items():
-                ret += " " + brackets[0] + self.__pretty_list(remixers) + " " + kind + brackets[1]
+                ret += " " + brackets[0] + self.pretty_list(remixers) + " " + kind + brackets[1]
                 brackets = "[]"
 
         return ret
@@ -202,7 +205,7 @@ class MetadataParser:
         all_artists = self.artists + self.withs + self.features
         for kind, remixers in self.remixers.items():
             if kind != "Mashup": all_artists += remixers
-        return self.__pretty_list(self.__strip_year_genre(all_artists))
+        return self.pretty_list(self.__strip_year_genre(all_artists))
 
     def get_album_artist(self) -> str:
         if "Mashup" in self.remixers.keys(): return self.remixers["Mashup"][0]
@@ -261,6 +264,8 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, overwrite: bool = T
     tags.save()
 
 if __name__ == "__main__":
-    print(MetadataParser("Sam Smith (ft. Kim Petras) - UNHOLY [FÄT TONY 2k22 Techno REMIX]"))
-    print()
-    print(MetadataParser("Martin Garrix - Reboot"))
+    parse = MetadataParser("Witch Doktor (Illyus & Barrientos Remix) [FREE DOWNLOAD]")
+    print(parse)
+    print(f"{parse.artists=}")
+    print(f"{parse.remixers=}")
+    print(f"{parse.title=}")

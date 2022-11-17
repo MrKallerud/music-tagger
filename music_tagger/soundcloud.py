@@ -100,9 +100,9 @@ class SoundCloudAPI:
             if not tries: raise HTTPError(response.status_code, "SOUNDCLOUD HTTP ERROR")
             return SoundCloudAPI.search(query, limit, offset, tries - 1)
     
-        return [SoundCloudMetadata(result) for result in response.json().get("collection")]
+        return [SoundCloudTrack(result) for result in response.json().get("collection")]
 
-class SoundCloudMetadata:
+class SoundCloudTrack:
     def __init__(self, data: dict):
         self.__artwork_url = data.get("artwork_url")
         self.__date = data.get("release_date") if data.get("release_date") else data.get("created_at")
@@ -117,7 +117,11 @@ class SoundCloudMetadata:
         self.user = SoundCloudUser(data.get("user"))
 
     def get_artwork_url(self) -> str:
-        return self.__artwork_url.replace("large", "t500x500")
+        if self.__artwork_url:
+            return self.__artwork_url.replace("large", "t500x500")
+        if self.user.avatar_url:
+            return self.user.avatar_url.replace("large", "t500x500")
+        return ""
 
     def get_year(self) -> str:
         return self.__date[:4]
