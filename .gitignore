@@ -1,0 +1,5 @@
+
+*.key
+music_tagger.egg-info
+music_tagger/__pycache__
+tests

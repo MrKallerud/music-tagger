@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+version = "0.0.1"
+requires-python = ">=3.7"
+license = {text = "MIT License"}
+name = "music-tagger"
+description = "Automatically tag your music."
+readme = "README.md"
+dependencies = [
+    "requests",
+    "mutagen"
+]
+
+[project.scripts]
+music-tagger = "music_tagger.__init__:main"
