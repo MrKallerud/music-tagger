@@ -1,4 +1,13 @@
 import re
+from os.path import join, expanduser
+
+FOLDER = join(expanduser('~'), ".music-tagger")
+
+AUDIO_FORMATS = [
+    ".wav",
+    ".flac",
+    ".mp3"
+]
 
 YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
 BRACKET_REGEX = re.compile(r"[*(\[](.*?)(?:[*)\]]|$)", re.I)
