@@ -4,13 +4,15 @@ from io import BytesIO
 
 import mutagen
 import requests
+from tempfile import TemporaryFile
 from mutagen.easyid3 import EasyID3
 from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 from PIL import Image
 from PIL.Image import Resampling
+from pathlib import Path
 
 from music_tagger import colors as Color
-from music_tagger import regexes as Regexes
+from music_tagger import util as Regexes
 
 
 class MetadataParser:
@@ -216,7 +218,7 @@ Genre:          {self.genre}"""
 
 
 # EMBED METADATA TO FILE
-def embed_metadata(filepath: str, overwrite: bool = True, **kwargs):
+def embed_metadata(filepath: Path, overwrite: bool = True, **kwargs):
     try: tags = EasyID3(filepath)
     except ID3NoHeaderError:
         tags = mutagen.File(filepath, easy=True)
@@ -232,7 +234,7 @@ def embed_metadata(filepath: str, overwrite: bool = True, **kwargs):
     tags.save()
 
 
-def embed_artwork(filepath: str, url: str, size: int = 800, overwrite: bool = True):
+def embed_artwork(filepath: Path, url: str, size: int = 800, overwrite: bool = True):
     try: tags = ID3(filepath)
     except ID3NoHeaderError:
         tags = mutagen.File(filepath)
@@ -245,18 +247,17 @@ def embed_artwork(filepath: str, url: str, size: int = 800, overwrite: bool = Tr
     image = Image.open(BytesIO(r.content))
 
     image.thumbnail((size, size), Resampling.LANCZOS)
-    image_path = filepath[:-3] + "jpg"
-    image.save(image_path, format = "jpeg")
-    artwork = open(image_path, "rb")
+    tmp = TemporaryFile()
+    image.save(tmp, format = "jpeg")
+    tmp.seek(0)
 
     tags["APIC"] = APIC(
         encoding = 3,
         mime = "image/jpeg",
         type = 3,
-        data = artwork.read())
+        data = tmp.read())
 
-    artwork.close()
-    os.remove(image_path)
+    tmp.close()
     tags.save()
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import json, re
+from os.path import join
 from pathlib import Path
 from ssl import SSLContext
 from urllib.parse import urljoin
@@ -9,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from music_tagger.exceptions import HTTPError
+from music_tagger.util import FOLDER
 
 ssl_verify=True
 
@@ -31,7 +33,7 @@ def get_obj_from(url):
         return False
 
 class SoundCloudAPI:
-    __KEY_FILE = Path(".soundcloud.key")
+    __KEY_FILE = Path(join(FOLDER, "soundcloud.key"))
     WEBURL_BASE = "https://soundcloud.com"
     __API_BASE = "https://api-v2.soundcloud.com"
 
