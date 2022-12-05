@@ -1,5 +1,4 @@
 import re
-from re import Pattern
 from os.path import join, expanduser
 
 FOLDER = join(expanduser('~'), ".music-tagger")
@@ -11,7 +10,7 @@ AUDIO_FORMATS = [
 ]
 
 # REGEXES
-def __list_to_regex(list: list) -> Pattern:
+def __list_to_regex(list: list) -> re.Pattern:
     return re.compile(r"\b(" + r"|".join(list) + r")\b", re.I)
 
 __GENRES = [
@@ -133,10 +132,10 @@ __EXTENDED = [
 ]
 
 ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|x|&)\s+", re.I)
-YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
 BRACKET_REGEX = re.compile(r"[*(\[](.*?)(?:[*)\]]|$)", re.I)
 DASH_SPLITTER_REGEX = re.compile(r"\s+-\s+")
 WITH_REGEX = re.compile(r"\b(with)\b", re.I)
+YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
 
 EXTENDED_REGEX = __list_to_regex(__EXTENDED)
 FEAT_REGEX = __list_to_regex(__FEATURING)
