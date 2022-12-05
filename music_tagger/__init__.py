@@ -5,6 +5,7 @@ from pathlib import Path
 
 from music_tagger import colors as Color
 from music_tagger.music_file import MusicFile
+from music_tagger.matcher import Matcher
 from music_tagger.util import AUDIO_FORMATS, FOLDER
 
 
@@ -17,61 +18,39 @@ def main():
     parser.add_argument("file", type = str, help = "Path to the file to be analyzed.")
 
     # Add options
-    services = parser.add_mutually_exclusive_group()
-    services.add_argument("-sc", "--soundcloud", help = "Specify a SoundCloud URL to get metadata from")
-    services.add_argument("-s", "--spotify", help = "Specify a Spotify URL to get metadata from")
-
-    parser.add_argument("-o", "--overwrite", action = "store_true", help = "Overwrites existing files and metadata")
-    # TODO: no_convert
-    # parser.add_argument("--no_convert", action = "store_true", help = "Converts audio files to mp3")
+    parser.add_argument("-sc", "--soundcloud", help = "Specify a SoundCloud URL to get metadata from")
+    parser.add_argument("-s", "--spotify", help = "Specify a Spotify URL to get metadata from")
+    parser.add_argument("-f", "--format", default = None, help = "Converts audio files to the desired format")
+    parser.add_argument("--no_overwrite", action = "store_true", help = "Keeps existing files and metadata")
+    parser.add_argument("-sim", "--simulate", action = "store_true", help = "Simulates the matching without writing metadata or converting files")
+    parser.add_argument("--suppress", action = "store_true", help = "Will match with the best option without prompting user")
 
     args = parser.parse_args()
-
     path = Path(args.file)
-
-    if not path.exists():
-        print(f"{Color.BOLD}{Color.WARNING}No such file, try again.{Color.ENDC}")
-        exit(1)
 
     if path.is_dir():
         for file in path.iterdir():
-            if file.suffix not in AUDIO_FORMATS: continue
-            file = MusicFile(file)
+            tag_music(file, args)
+    else: tag_music(path, args)
 
-            if file.get_ext() != ".mp3": file.convert(overwrite = args.overwrite)
+def tag_music(path: Path, args):
+    if path.suffix not in AUDIO_FORMATS:
+        print(path.name, "is not a supported filetype.\n")
+        return
+    file = MusicFile(path)
+    print(f"\n{Color.BOLD}{file}{Color.ENDC}")
 
-            match = identify(file)
-            file.write_metadata(match)
-    else:
-        file = MusicFile(path)
-        match = identify(file)
-        file.write_metadata(match)
+    try: Matcher.print_match(*file.identify(suppress = args.suppress))
+    except TypeError as e:
+        print(f"{Color.WARNING}{Color.BOLD}NO MATCH{Color.ENDC}")
+    except Exception as e:
+        print(f"{Color.FAIL}{Color.BOLD}ERROR:{Color.ENDC} {e}")
+    
+    if args.simulate: return
 
-def identify(file: MusicFile):
-    print(f"\n{Color.BOLD}{file.to_string()}{Color.ENDC}")
-    best_matches = {}
-    # TODO: Shazam
+    if args.format:
+        format = args.format if args.format.startswith('.') else f".{args.format}"
+        if file.get_ext() != format:
+            file.convert(format, args.no_overwrite)
 
-    best_matches.update(file.match_spotify())
-    best_matches.update(file.match_soundcloud())
-
-    # Selection
-    i = 1
-    for sc_match, sc_matchrate in best_matches.items():
-        print(f"{i}. ", end='')
-        if sc_matchrate > 0.8: print(Color.OKGREEN, end='')
-        elif sc_matchrate < 0.5: print(Color.FAIL, end='')
-        else: print(Color.WARNING, end='')
-        print(f"{sc_matchrate:.1%}:{Color.ENDC} {sc_match}")
-        # if sc_matchrate > 0.85: return sc_match
-        i += 1
-
-    choice = input("Select best match: ")
-    if choice.strip().isdigit(): return list(best_matches.values())[int(choice.strip()) - 1]
-
-    return None
-
-if __name__ == "__main__":
-    file = MusicFile("/Users/ruud/Downloads/ABBA - GIMME GIMME GIMME [FÄT TONY _ MEDUN R.mp3")
-    match = identify(file)
-    file.write_metadata(match)
+    file.write_metadata(args.no_overwrite)
