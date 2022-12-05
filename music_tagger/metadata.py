@@ -18,10 +18,11 @@ from music_tagger import util as Regexes
 class MetadataParser:
     __STRIP_BRACKETS = r"()[]* "
     __ARTIST_SPLIT_REGEX = r"\s*,\s*|\s+(?:,|vs|x|&)\s+"
+    __DASH_SPLITTER_REGEX = re.compile(r"\s+[-–—]\s+")
     __DASH_SPLITTER = " - "
 
     def __init__(self, title: str):
-        self.__filename = title
+        self.__filename = re.sub(r"\s{2,}", " ", title.strip())
 
         self.artists = []
         self.features = []
@@ -49,17 +50,16 @@ class MetadataParser:
 
     def __parse_title(self):
         try:
-            if self.__DASH_SPLITTER in self.__filename:
+            if self.__DASH_SPLITTER_REGEX.search(self.__filename):
                 self.title = re.findall(r"-\s+(.*?)\s*(?:[()\[\]]|ft|feat|$)", self.__filename, flags = re.I)[0]
             else:
                 self.title = re.findall(r"(.*?)\s*(?:[()\[\]]|ft|feat|$)", self.__filename, flags = re.I)[0].strip(self.__STRIP_BRACKETS)
         except IndexError:
             self.title = self.__filename
-            print(f"{Color.WARNING}{Color.BOLD}METADATA PARSING ERROR: {Color.ENDC} Couldn't parse title")
+            print(f"{Color.WARNING}{Color.BOLD}METADATA PARSING ERROR:{Color.ENDC} Couldn't parse title")
         self.__filename = self.__filename.replace(self.title, "")
 
     def __parse_artists(self):
-        print(self.__filename)
         self.artists = self.__split_artists(self.__filename.split(self.__DASH_SPLITTER)[0].strip())
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
@@ -102,10 +102,11 @@ class MetadataParser:
             elif Regexes.VERSION_REGEX.search(match):
                 remix_type = match.strip(self.__STRIP_BRACKETS).split()[-1].title()
                 remixers = self.__split_artists(re.sub(remix_type, "", match, flags = re.I).strip(self.__STRIP_BRACKETS))
-                self.remixers[remix_type] = remixers
+                if len(remixers) != 0:
+                    self.remixers[remix_type] = remixers
 
             # Whatever is left is probably subtitle
-            elif "*" not in match:
+            elif "*" not in match and match.strip() != "":
                 self.subtitle = match.strip(self.__STRIP_BRACKETS)
 
             self.__filename = self.__filename.replace(match, "")
@@ -137,10 +138,12 @@ class MetadataParser:
         }
 
         if len(self.artists) > 0:
-            meta_dict["artist"] = self.get_artists()
+            meta_dict["artist"] = self.get_artist()
             meta_dict["albumartist"] = self.get_album_artist()
 
         if self.genre: meta_dict["genre"] = self.genre
+        elif "Mashup" in self.remixers.keys():
+            meta_dict["genre"] = "Mashup"
         if self.year: meta_dict["year"] = self.year
 
         return meta_dict
@@ -161,7 +164,7 @@ class MetadataParser:
         brackets = "()"
         ret = self.title
 
-        if self.subtitle is not None:
+        if self.subtitle:
             ret += " " + brackets[0] + self.subtitle + brackets[1]
             brackets = "[]"
 
@@ -172,9 +175,9 @@ class MetadataParser:
                 ret += kind + brackets[1]
                 brackets = "[]"
         elif self.is_extended:
-            if self.version is not None:
+            if self.version and "Extended" not in self.version:
                 self.version = "Extended " + self.version
-            else:
+            elif not self.version:
                 self.version = "Extended Mix"
 
         if self.version is not None:
@@ -201,19 +204,20 @@ class MetadataParser:
 
         return ret
 
-    def get_artists(self) -> str:
+    def get_artist(self) -> str | None:
         all_artists = self.artists + self.withs + self.features
         for kind, remixers in self.remixers.items():
             if kind != "Mashup": all_artists += remixers
-        return self.pretty_list(self.__strip_year_genre(all_artists))
+        artist_string = self.pretty_list(self.__strip_year_genre(all_artists))
+        if artist_string != "": return artist_string
 
-    def get_album_artist(self) -> str:
+    def get_album_artist(self) -> str | None:
         if "Mashup" in self.remixers.keys(): return self.remixers["Mashup"][0]
         return self.artists[0] if len(self.artists) > 0 else None
 
     def __repr__(self) -> str:
         return f"""Title:          {self.get_title()}
-Artists:        {self.get_artists()}
+Artists:        {self.get_artist()}
 Album:          {self.get_album()}
 Album Artist:   {self.get_album_artist()}
 Year:           {self.year}
@@ -221,35 +225,43 @@ Genre:          {self.genre}"""
 
 
 # EMBED METADATA TO FILE
-def embed_metadata(filepath: Path, overwrite: bool = True, **kwargs):
-    try: tags = EasyID3(filepath)
+def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
+    try:
+        tags = EasyID3(filepath)
+        if no_overwrite: tags.delete()
     except ID3NoHeaderError:
         tags = mutagen.File(filepath, easy=True)
         tags.add_tags()
     
     EasyID3.RegisterTextKey('comment', 'COMM')
     EasyID3.RegisterTextKey('year', 'TYER')
+    EasyID3.RegisterTextKey('key', 'TKEY')
+    EasyID3.RegisterTextKey('label', 'TPUB')
+    EasyID3.RegisterTXXXKey("explicit", "itunesadvisory")
 
+    print("Embedding metadata...")
     for tag, value in kwargs.items():
-        if not overwrite and tag in tags.keys() or value == None: continue
-        tags[tag] = value
+        if no_overwrite and tag in tags.keys() or not value: continue
+        if value is bool: value = 1 if value else 0
+        tags[tag] = str(value)
 
     tags.save()
 
-
-def embed_artwork(filepath: Path, url: str, size: int = 800, overwrite: bool = True):
+def embed_artwork(filepath: Path, url: str, size: int = 800, no_overwrite: bool = False):
     try: tags = ID3(filepath)
     except ID3NoHeaderError:
         tags = mutagen.File(filepath)
         tags.add_tags()
 
-    if not overwrite and "APIC:" in tags.keys(): return
+    if no_overwrite and "APIC:" in tags.keys(): return
+    print("Embedding artwork...")
     tags.delall("APIC")
 
     r = requests.get(url)
     image = Image.open(BytesIO(r.content))
 
-    image.thumbnail((size, size), Resampling.LANCZOS)
+    if image.width > size or image.height > size:
+        image.thumbnail((size, size), Resampling.LANCZOS)
     tmp = TemporaryFile()
     image.save(tmp, format = "jpeg")
     tmp.seek(0)
@@ -264,8 +276,8 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, overwrite: bool = T
     tags.save()
 
 if __name__ == "__main__":
-    parse = MetadataParser("Witch Doktor (Illyus & Barrientos Remix) [FREE DOWNLOAD]")
+    parse = MetadataParser(
+        "HUGEL Feat. Lorna & Jenn Morel - Tamo Loco (Extended) Available everywhere !")
     print(parse)
-    print(f"{parse.artists=}")
-    print(f"{parse.remixers=}")
-    print(f"{parse.title=}")
+    print(parse.remixers)
+    print(parse.version)
