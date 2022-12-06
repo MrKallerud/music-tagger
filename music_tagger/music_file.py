@@ -71,7 +71,7 @@ class MusicFile:
             explicit = match.is_explicit(),
             genre = match.get_genre(),
             isrc = match.get_isrc(),
-            key = match.get_camelot_key(),
+            key = match.get_musical_key(),
             label = match.get_label(),
             title = match.get_title(),
             year = match.get_year(),
