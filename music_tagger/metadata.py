@@ -229,7 +229,6 @@ Genre:          {self.genre}"""
 def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
     try:
         tags = EasyID3(filepath)
-        if no_overwrite: tags.delete()
     except ID3NoHeaderError:
         tags = mutagen.File(filepath, easy=True)
         tags.add_tags()
@@ -244,6 +243,7 @@ def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
     print("Embedding metadata...")
     for tag, value in kwargs.items():
         if no_overwrite and tag in tags.keys() or not value: continue
+        if tag in tags.keys(): tags.pop(tag)
         if value is bool: value = 1 if value else 0
         tags[tag] = str(value)
 
