@@ -24,6 +24,8 @@ An automatic tool for tagging your music library with metadata from online music
 - [ ] Implement metadata fetching from MusicBrainz.
 - [ ] Implement lyric fetching from Genius.
 - [ ] Improve performance
+- [ ] Optimize song matching
+- [ ] Let user prioritize singles or albums
 - [ ] Fix known bugs:
 
 ## Installation
