@@ -12,15 +12,19 @@ An automatic tool for tagging your music library with metadata from online music
     - SoundCloud
     - Shazam
 - Embeds metadata to file
-- Encodes audio files to `.mp3`
+- Can encode audio files to `.mp3` and more
 
 ## Planned features
-- [ ] Implement lyric fetching from Genius.
-- [ ] Implement metadata fetching from MusicBrainz.
+- [ ] Improve UI
 - [ ] Make it possible to specify a url to get metadata from.
+- [ ] Add package to pypi
 - [ ] Make it possible to parse metadata without fetching online.
 - [ ] Make it easier to import this package in other Python projects.
-- [ ] Add package to pypi
+- [ ] Improve matching by getting metadata from original track if remix metadata couldn't be found.
+- [ ] Implement metadata fetching from MusicBrainz.
+- [ ] Implement lyric fetching from Genius.
+- [ ] Improve performance
+- [ ] Fix known bugs:
 
 ## Installation
 
