@@ -3,7 +3,7 @@ from pathlib import Path
 
 from music_tagger.metadata import embed_artwork, embed_metadata
 from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3NoHeaderError
+from mutagen.id3 import ID3NoHeaderError, TIT2, TPE1, TALB
 
 class MusicFile:
     def __init__(self, filepath: str):
@@ -20,6 +20,27 @@ class MusicFile:
 
     def get_filename(self) -> str:
         return self.path.with_suffix('').name
+
+    def get_title(self) -> str | None:
+        title = self.metadata.get("TIT2")
+        if not title: title = self.metadata.get("title")
+        if title is TIT2: return title.text
+        if title is list and len(title) != 0: return title[0]
+        return title
+
+    def get_artist(self) -> str | None:
+        artist = self.metadata.get("TPE1")
+        if not artist: artist = self.metadata.get("artist")
+        if artist is TPE1: return artist.text
+        if artist is list and len(artist) != 0: return artist[0]
+        return artist
+
+    def get_album(self) -> str | None:
+        album = self.metadata.get("TPE1")
+        if not album: album = self.metadata.get("album")
+        if album is TALB: return album.text
+        if album is list and len(album) != 0: return album[0]
+        return album
 
     def get_duration(self) -> int:
         file = mutagen.File(self.path)
@@ -83,9 +104,9 @@ class MusicFile:
 
     def to_string(self) -> str:
         ret = ""
-        try: ret += self.metadata["artist"] + " - " + self.metadata["title"]
+        try: ret += self.get_artist() + " - " + self.get_title()
         except (KeyError, TypeError): pass
-        try: ret += " - " + self.metadata["album"]
+        try: ret += " - " + self.get_album()
         except (KeyError, TypeError): pass
         if ret != "": return ret
         return self.get_filename()

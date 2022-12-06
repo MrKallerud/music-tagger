@@ -92,15 +92,15 @@ class Matcher:
         matches = {} 
         matchable_formats = []
 
-        if music_file.metadata and music_file.metadata.get("artist") and music_file.metadata.get("title"):
-            if music_file.metadata.get("album"):
+        if music_file.metadata and music_file.get_artist() and music_file.get_title():
+            if music_file.get_album():
                 matchable_formats.append(
-                    music_file.metadata.get("artist") + " - " + \
-                    music_file.metadata.get("title") + " " + \
-                    music_file.metadata.get("album"))
+                    music_file.get_artist() + " - " + \
+                    music_file.get_title() + " " + \
+                    music_file.get_album())
 
-            matchable_formats.append(music_file.metadata.get("artist") + " - " + music_file.metadata.get("title"))
-            matchable_formats.append(music_file.metadata.get("title") + " - " + music_file.metadata.get("artist"))
+            matchable_formats.append(music_file.get_artist() + " - " + music_file.get_title())
+            matchable_formats.append(music_file.get_title() + " - " + music_file.get_artist())
 
         matchable_formats.append(music_file.get_filename())
 
