@@ -182,7 +182,7 @@ class SpotifyTrack:
             return
 
         remix_type = parts[-1].title()
-        remixers = util.ARTIST_SPLIT_REGEX.split(re.sub(remix_type, "", match, flags = re.I).strip())
+        remixers = util.ARTIST_SPLIT_REGEX.split(match.replace(remix_type, "").strip())
         self.__remixers[remix_type] = remixers
 
     def to_string(self) -> str:
@@ -195,7 +195,7 @@ class SpotifyTrack:
         return hash(self.get_isrc())
 
     def __repr__(self) -> str:
-        return f"{self.to_string()}: {Color.OKBLUE}{Color.UNDERLINE}{self.get_web_url()}{Color.ENDC}"
+        return f"{self.to_string()}: {Color.OKBLUE}{Color.UNDERLINE}{self.get_url()}{Color.ENDC}"
 
 class SpotifyAlbum:
     def __init__(self, data: dict):
@@ -210,7 +210,7 @@ class SpotifyAlbum:
     def get_api_url(self) -> str:
         return SpotifyAPI.API_BASE + "/v1/album/" + self.__id
 
-    def get_web_url(self) -> str:
+    def get_url(self) -> str:
         return SpotifyAPI.WEBURL_BASE + "/album/" + self.__id
 
     def get_year(self) -> str:
@@ -234,7 +234,7 @@ class SpotifyArtist:
     def get_api_url(self) -> str:
         return SpotifyAPI.API_BASE + "/v1/artist/" + self.id
 
-    def get_web_url(self) -> str:
+    def get_url(self) -> str:
         return SpotifyAPI.WEBURL_BASE + "/artist/" + self.id
 
     def __eq__(self, other: object) -> bool:
