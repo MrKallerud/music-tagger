@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-version = "0.0.1"
+version = "2022.12.06"
 requires-python = ">=3.7"
 license = {text = "MIT License"}
 name = "music-tagger"
@@ -11,7 +11,8 @@ description = "Automatically tag your music."
 readme = "README.md"
 dependencies = [
     "requests",
-    "mutagen"
+    "mutagen",
+    "shazam.py"
 ]
 
 [project.scripts]

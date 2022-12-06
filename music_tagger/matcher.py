@@ -133,4 +133,4 @@ if __name__ == "__main__":
     # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/Artillery (PSY MIX).mp3"), suppress = True))
     # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/vetikke.mp3")))
     # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/begrn.mp3"), suppress = True))
-    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/låter 2/Diplo & SIDEPIECE - On My Mind (Purple Disco Machine Remix).mp3"), suppress = True))
+    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/låter 2/Imanbek & BYOR - Belly Dancer (Extended Mix).mp3"), suppress=True))
