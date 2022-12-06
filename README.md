@@ -1,6 +1,8 @@
 
 # Music Tagger
+
 An automatic tool for tagging your music library with metadata from online music libraries.
+> ⚠️ Be VERY careful with using this software as is it still full of bugs.
 
 ## Features
 - Automatically identifies track identity based on
@@ -24,9 +26,10 @@ An automatic tool for tagging your music library with metadata from online music
 - [ ] Implement metadata fetching from MusicBrainz.
 - [ ] Implement lyric fetching from Genius.
 - [ ] Improve performance
+- [ ] Option to disable Shazam (It's so slooow)
 - [ ] Optimize song matching
 - [ ] Let user prioritize singles or albums
-- [ ] Fix known bugs:
+- [ ] Fix known bugs
 
 ## Installation
 
