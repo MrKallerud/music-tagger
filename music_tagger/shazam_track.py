@@ -28,8 +28,10 @@ class ShazamTrack:
         return self.__artist
     
     def get_album(self) -> str:
-        return self.__metadata.get("album")
-    
+        if self.__metadata.get("album"):
+            return self.__metadata.get("album")
+        return self.__title
+
     def get_genre(self) -> str:
         return self.__genre
     
