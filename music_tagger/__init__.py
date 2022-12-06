@@ -21,8 +21,8 @@ def main():
     parser.add_argument("file", type = str, help = "Path to the file to be analyzed.")
 
     # Add options
-    parser.add_argument("-sc", "--soundcloud", help = "Specify a SoundCloud URL to get metadata from")
-    parser.add_argument("-s", "--spotify", help = "Specify a Spotify URL to get metadata from")
+    # parser.add_argument("-sc", "--soundcloud", help = "Specify a SoundCloud URL to get metadata from")
+    # parser.add_argument("-s", "--spotify", help = "Specify a Spotify URL to get metadata from")
     parser.add_argument("-f", "--format", default = None, help = "Converts audio files to the desired format")
     parser.add_argument("--no_overwrite", action = "store_true", help = "Keeps existing files and metadata")
     parser.add_argument("-sim", "--simulate", action = "store_true", help = "Simulates the matching without writing metadata or converting files")
