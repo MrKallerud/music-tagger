@@ -16,7 +16,6 @@ from music_tagger import util as Regexes
 
 class MetadataParser:
     __STRIP_BRACKETS = r"()[]* "
-    __DASH_SPLITTER_REGEX = re.compile(r"(?:^|\s+)[-–—](?:\s+|$)")
 
     def __init__(self, title: str):
         self.__filename = re.sub(r"\s{2,}", " ", title.strip())
@@ -47,7 +46,7 @@ class MetadataParser:
 
     def __parse_title(self):
         try:
-            if self.__DASH_SPLITTER_REGEX.search(self.__filename):
+            if Regexes.DASH_SPLITTER_REGEX.search(self.__filename):
                 self.title = re.findall(r"-\s+(.*?)\s*(?:[()\[\]]|ft|feat|$)", self.__filename, flags = re.I)[0]
             else:
                 self.title = re.findall(r"(.*?)\s*(?:[()\[\]]|ft|feat|$)", self.__filename, flags = re.I)[0].strip(self.__STRIP_BRACKETS)
@@ -58,12 +57,12 @@ class MetadataParser:
         self.__filename = re.sub(r"\s{2,}", " ", self.__filename)
 
     def __parse_artists(self):
-        artists = self.__DASH_SPLITTER_REGEX.split(self.__filename)[0].strip()
+        artists = Regexes.DASH_SPLITTER_REGEX.split(self.__filename)[0].strip()
         self.artists = self.__split_artists(artists)
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
         self.__filename = Regexes.ARTIST_SPLIT_REGEX.sub("", self.__filename)
-        self.__filename = self.__DASH_SPLITTER_REGEX.sub("", self.__filename)
+        self.__filename = Regexes.DASH_SPLITTER_REGEX.sub("", self.__filename)
 
     def __split_artists(self, string: str) -> list[str]:
         string = Regexes.ARTIST_SPLIT_REGEX.sub(",", string)
@@ -239,8 +238,8 @@ def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
     EasyID3.RegisterTextKey('year', 'TYER')
     EasyID3.RegisterTextKey('key', 'TKEY')
     EasyID3.RegisterTextKey('label', 'TPUB')
-    EasyID3.RegisterTextKey('url', 'WOAS')
     EasyID3.RegisterTXXXKey("explicit", "itunesadvisory")
+    EasyID3.RegisterTXXXKey("url", "url")
 
     print("Embedding metadata...")
     for tag, value in kwargs.items():

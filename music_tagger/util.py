@@ -131,9 +131,9 @@ __EXTENDED = [
     "Original"
 ]
 
-ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|x|&)\s+", re.I)
+ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|\+|_|x|&)\s+", re.I)
 BRACKET_REGEX = re.compile(r"[*(\[].*?(?:[*)\]]|$)", re.I)
-DASH_SPLITTER_REGEX = re.compile(r"\s+-\s+")
+DASH_SPLITTER_REGEX = re.compile(r"\s+[-–—]\s+")
 WITH_REGEX = re.compile(r"\b(with)\b", re.I)
 YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
 

@@ -30,7 +30,8 @@ class MusicFile:
 
     def identify(self, suppress = False):
         from music_tagger.matcher import Matcher
-        return Matcher.identify(self, suppress = suppress)
+        self.identity, ratio = Matcher.identify(self, suppress = suppress)
+        return self.identity, ratio
 
     def __get_embedded_metadata(self) -> dict | None:
         try: tags = EasyID3(self.path)
@@ -93,5 +94,6 @@ class MusicFile:
         return self.to_string()
 
 if __name__ == "__main__":
-    MusicFile("/Users/ruud/Downloads/Sam Smith (ft. Kim Petras) - UNHOLY [FÄT TONY REMIX].mp3")
-    MusicFile("/Users/ruud/Downloads/Artillery (PSY Mix).mp3")
+    file = MusicFile("/Users/ruud/Development/music-tagger/tests/test_files/Black V Neck - Sex, Drugs, Alcohol.mp3")
+    id, rate = file.identify(True)
+    print(f"{(rate * 100)}% - {id}")
