@@ -16,7 +16,6 @@ from music_tagger import util as Regexes
 
 class MetadataParser:
     __STRIP_BRACKETS = r"()[]* "
-    __ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|\+|x|&)\s+", re.I)
     __DASH_SPLITTER_REGEX = re.compile(r"(?:^|\s+)[-–—](?:\s+|$)")
 
     def __init__(self, title: str):
@@ -63,11 +62,11 @@ class MetadataParser:
         self.artists = self.__split_artists(artists)
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
-        self.__filename = self.__ARTIST_SPLIT_REGEX.sub("", self.__filename)
+        self.__filename = Regexes.ARTIST_SPLIT_REGEX.sub("", self.__filename)
         self.__filename = self.__DASH_SPLITTER_REGEX.sub("", self.__filename)
 
     def __split_artists(self, string: str) -> list[str]:
-        string = self.__ARTIST_SPLIT_REGEX.sub(",", string)
+        string = Regexes.ARTIST_SPLIT_REGEX.sub(",", string)
         return list(filter(lambda artist: artist != "", string.split(",")))
 
     def __parse_feature(self):
