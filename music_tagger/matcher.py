@@ -8,6 +8,10 @@ from music_tagger.shazam_track import ShazamTrack
 from music_tagger.soundcloud import SoundCloudAPI, SoundCloudTrack
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
 
+class MatchError(Exception):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+
 class Matcher:
     __THRESHOLD = 0.8
     __MIN_THRESHOLD = 0.6
@@ -16,7 +20,7 @@ class Matcher:
     api = SpotifyAPI | SoundCloudAPI
 
     @staticmethod
-    def identify(music_file: MusicFile, apis: list[api] = [SpotifyAPI, SoundCloudAPI], suppress: bool = False) -> tuple[track, float] | None:
+    def identify(music_file: MusicFile, apis: list[api] = [SpotifyAPI, SoundCloudAPI], album_types = ["Single"], suppress: bool = False) -> tuple[track, float]:
         all_results = {}
         
         for api in apis:
@@ -34,7 +38,14 @@ class Matcher:
             shazam.get_spotify_metadata(all_results)
             if shazam_result: all_results.update(shazam_result)
 
-        if len(all_results.keys()) == 0: return None
+        # Filtering
+        # TODO: Accept Album, but pri Single
+        if len(all_results.keys()) == 0: raise MatchError("No matches")
+        all_results = dict(filter(lambda item: abs(item[0].get_duration() - music_file.get_duration()) <= 1, all_results.items()))
+        if len(all_results.keys()) == 0: raise MatchError("No matching durations")
+        all_results = dict(filter(lambda item: item[0].get_album_type() in album_types, all_results.items()))
+        if len(all_results.keys()) == 0: raise MatchError("No matching album types")
+
         all_results = dict(sorted(all_results.items(), key=lambda item: item[1], reverse=True))
         if suppress: return list(all_results.items())[0]
 
@@ -99,10 +110,8 @@ class Matcher:
 
         for format in matchable_formats:
             for result in results:
-                if abs(music_file.get_duration() - result.get_duration()) > 1: continue
                 matchable_result_formats = [
                     result.get_artist() + " - " + result.get_title() + " " + result.get_album(),
-                    #result.get_artist() + " - " + result.get_title(),
                     result.get_title()
                 ]
 
@@ -121,6 +130,7 @@ class Matcher:
 
 
 if __name__ == "__main__":
-    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/Artillery (PSY MIX).mp3"), suppress = True))
-    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/vetikke.mp3")))
-    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/begrn.mp3"), suppress = True))
+    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/Artillery (PSY MIX).mp3"), suppress = True))
+    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/vetikke.mp3")))
+    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/begrn.mp3"), suppress = True))
+    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/låter 2/Diplo & SIDEPIECE - On My Mind (Purple Disco Machine Remix).mp3"), suppress = True))

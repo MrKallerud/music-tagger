@@ -187,6 +187,9 @@ class SoundCloudTrack:
     def get_musical_key(self) -> str | None:
         return None
 
+    def get_url(self) -> str:
+        return self.__url
+
     def get_spotify_metadata(self) -> SpotifyTrack | None:
         if self.__publisher_metadata and self.__publisher_metadata.get("isrc"):
             try: return SpotifyAPI.search(isrc = self.__publisher_metadata.get("isrc"))[0]

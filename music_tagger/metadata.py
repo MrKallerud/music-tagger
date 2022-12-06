@@ -1,4 +1,3 @@
-import os
 import re
 from io import BytesIO
 
@@ -17,9 +16,8 @@ from music_tagger import util as Regexes
 
 class MetadataParser:
     __STRIP_BRACKETS = r"()[]* "
-    __ARTIST_SPLIT_REGEX = r"\s*,\s*|\s+(?:,|vs|x|&)\s+"
-    __DASH_SPLITTER_REGEX = re.compile(r"\s+[-–—]\s+")
-    __DASH_SPLITTER = " - "
+    __ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|\+|x|&)\s+", re.I)
+    __DASH_SPLITTER_REGEX = re.compile(r"(?:^|\s+)[-–—](?:\s+|$)")
 
     def __init__(self, title: str):
         self.__filename = re.sub(r"\s{2,}", " ", title.strip())
@@ -58,15 +56,18 @@ class MetadataParser:
             self.title = self.__filename
             print(f"{Color.WARNING}{Color.BOLD}METADATA PARSING ERROR:{Color.ENDC} Couldn't parse title")
         self.__filename = self.__filename.replace(self.title, "")
+        self.__filename = re.sub(r"\s{2,}", " ", self.__filename)
 
     def __parse_artists(self):
-        self.artists = self.__split_artists(self.__filename.split(self.__DASH_SPLITTER)[0].strip())
+        artists = self.__DASH_SPLITTER_REGEX.split(self.__filename)[0].strip()
+        self.artists = self.__split_artists(artists)
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
-        self.__filename = re.sub(self.__ARTIST_SPLIT_REGEX, "", self.__filename, re.I) + "".join(self.__filename.split(self.__DASH_SPLITTER)[1:])
+        self.__filename = self.__ARTIST_SPLIT_REGEX.sub("", self.__filename)
+        self.__filename = self.__DASH_SPLITTER_REGEX.sub("", self.__filename)
 
     def __split_artists(self, string: str) -> list[str]:
-        string = re.sub(self.__ARTIST_SPLIT_REGEX, ",", string, flags = re.I)
+        string = self.__ARTIST_SPLIT_REGEX.sub(",", string)
         return list(filter(lambda artist: artist != "", string.split(",")))
 
     def __parse_feature(self):
@@ -87,7 +88,6 @@ class MetadataParser:
         
     def __parse_brackets(self):
         for match in Regexes.BRACKET_REGEX.findall(self.__filename):
-
             # Extended
             if re.search("extended", match, flags = re.I) is not None:
                 self.is_extended = True
@@ -96,7 +96,8 @@ class MetadataParser:
 
             # Discard
             if Regexes.IGNORE_REGEX.search(match):
-                self.__filename = self.__filename.replace(match, ""); break
+                self.__filename = self.__filename.replace(match, "")
+                continue
 
             # Remix
             elif Regexes.VERSION_REGEX.search(match):
@@ -111,6 +112,8 @@ class MetadataParser:
 
             self.__filename = self.__filename.replace(match, "")
             self.__filename = re.sub(r"[(\[].*?[)\]]", "", self.__filename)
+
+        self.__filename = self.__filename.strip()
 
     def __parse_year(self):
         try:
@@ -237,6 +240,7 @@ def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
     EasyID3.RegisterTextKey('year', 'TYER')
     EasyID3.RegisterTextKey('key', 'TKEY')
     EasyID3.RegisterTextKey('label', 'TPUB')
+    EasyID3.RegisterTextKey('url', 'WOAS')
     EasyID3.RegisterTXXXKey("explicit", "itunesadvisory")
 
     print("Embedding metadata...")
@@ -277,7 +281,7 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, no_overwrite: bool 
 
 if __name__ == "__main__":
     parse = MetadataParser(
-        "HUGEL Feat. Lorna & Jenn Morel - Tamo Loco (Extended) Available everywhere !")
+        "[FREE DL] Riton & Kah-Lo - Fake ID (ÅMRTÜM Edit)")
     print(parse)
-    print(parse.remixers)
-    print(parse.version)
+    print(f"{parse.remixers=}")
+    print(f"{parse.version=}")

@@ -1,6 +1,5 @@
 from music_tagger import colors as Color
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
-from requests import HTTPError
 
 class ShazamTrack:
     def __init__(self, data: dict) -> None:
@@ -43,10 +42,20 @@ class ShazamTrack:
     def get_isrc(self) -> int:
         return self.__isrc
 
+    def get_url(self) -> str:
+        return self.__url
+
     def get_duration(self) -> int:
         if self.get_spotify_metadata():
             return self.get_spotify_metadata().get_duration()
         return 0
+
+    def get_album_type(self) -> str:
+        if self.get_spotify_metadata():
+            return self.get_spotify_metadata().get_album_type()
+        if "single" in self.get_album().lower(): return "Single"
+        if self.get_title().lower() in self.get_album().lower(): return "Single"
+        return "Album"
 
     def get_spotify_metadata(self, matches: list[SpotifyTrack] = []) -> SpotifyTrack | None:
         if self.__spotify: return self.__spotify

@@ -26,7 +26,7 @@ class SpotifyAPI:
         return SpotifyAPI.__access_token
 
     @staticmethod
-    def search(query: str = "", track: str = None, artist: str = None, album: str = None, isrc: str = None, limit: int = 5, offset: int = 0, type: str = "track", album_types: list[str] = ["Single"]) -> list:
+    def search(query: str = "", track: str = None, artist: str = None, album: str = None, isrc: str = None, limit: int = 5, offset: int = 0, type: str = "track") -> list:
         url = "/v1/search"
         if track: query += f" track:{track}"
         if artist: query += f" artist:{artist}"
@@ -44,8 +44,7 @@ class SpotifyAPI:
         
         response = requests.get(urljoin(SpotifyAPI.API_BASE, url), params, headers = headers)
         response.raise_for_status()
-        matches = [SpotifyTrack(result) for result in response.json().get("tracks").get("items")]
-        return list(filter(lambda match: match.get_album_type() in album_types, matches))
+        return [SpotifyTrack(result) for result in response.json().get("tracks").get("items")]
 
     @staticmethod
     def get_audio_features(id: str):
@@ -78,7 +77,7 @@ class SpotifyTrack:
     def get_api_url(self) -> str:
         return SpotifyAPI.API_BASE + "/v1/track/" + self.__id
 
-    def get_web_url(self) -> str:
+    def get_url(self) -> str:
         return SpotifyAPI.WEBURL_BASE + "/track/" + self.__id
 
     def get_title(self) -> str:

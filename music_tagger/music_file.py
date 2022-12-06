@@ -74,6 +74,7 @@ class MusicFile:
             label = match.get_label(),
             title = match.get_title(),
             year = match.get_year(),
+            url = match.get_url(),
         )
         embed_artwork(self.path, match.get_artwork(), no_overwrite = no_overwrite)
         if no_overwrite: return
