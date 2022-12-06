@@ -57,7 +57,7 @@ class MetadataParser:
         self.__filename = re.sub(r"\s{2,}", " ", self.__filename)
 
     def __parse_artists(self):
-        artists = Regexes.DASH_SPLITTER_REGEX.split(self.__filename)[0].strip()
+        artists = Regexes.DASH_SPLITTER_REGEX.split(self.__filename)[0]
         self.artists = self.__split_artists(artists)
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
@@ -281,5 +281,6 @@ if __name__ == "__main__":
     parse = MetadataParser(
         "[FREE DL] Riton & Kah-Lo - Fake ID (ÅMRTÜM Edit)")
     print(parse)
+    print(f"{parse.artists=}")
     print(f"{parse.remixers=}")
     print(f"{parse.version=}")
