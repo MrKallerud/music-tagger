@@ -67,8 +67,11 @@ class ShazamTrack:
         for match in filter(lambda match: match.get_isrc() == self.__isrc, matches):
             return match
 
+    def get_filename(self) -> str:
+        return self.to_string()
+
     def to_string(self) -> str:
-        return f"{self.get_artist()} - {self.get_title()} - {self.get_album()}"
+        return f"{self.get_artist()} - {self.get_title()}"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__) and self.__isrc == other.__isrc

@@ -13,6 +13,71 @@ from pathlib import Path
 from music_tagger import colors as Color
 from music_tagger import util as Regexes
 
+class MetadataFields:
+    NAME = "title"
+    ARTISTS = "artists"
+    ALBUM = "album"
+    ALBUM_ARTIST = "albumartist"
+
+    ALBUM_TYPE = "albumtype"
+    DATE = "date"
+    DESCRIPTION = "comment"
+    DOWNLOAD = "buy_url"
+    DURATION = "length"
+    EXPLICIT = "itunesadvisory"
+    EXTENDED = "extended"
+    FEATURING = "featuring"
+    GENRE = "genre"
+    ID = "id"
+    IMAGE = "artwork"
+    ISRC = "isrc"
+    KEY = "initialkey"
+    LABEL = "organization"
+    PLATFORM = "platform"
+    POPULARITY = "popularimeter"
+    VERSIONS = "remixers"
+    TAGS = "tags"
+    TEMPO = "bpm"
+    TRACK_COUNT = "trackcount"
+    TRACK_NUMBER = "tracknumber"
+    URL = "website"
+    DETAILS = "version"
+    WITH = "with"
+
+    # "albumartistsort"
+    # "album"
+    # "albumsort"
+    # "arranger"
+    # "artistsort"
+    # "asin"
+    # "author"
+    # "barcode"
+    # "catalognumber"
+    # "compilation"
+    # "composer"
+    # "composersort"
+    # "conductor"
+    # "copyright"
+    # "discnumber"
+    # "discsubtitle"
+    # "encodedby"
+    # "language"
+    # "lyricist"
+    # "media"
+    # "mood"
+    # "originaldate"
+    # "performer"
+    # "releasecountry"
+    # "replaygain_*_gain"
+    # "replaygain_*_peak"
+    # "titlesort"
+
+    @staticmethod
+    def valid_fields() -> list[str]:
+        fields = MetadataFields.__dict__
+        fields = dict(filter(lambda item: item[0].isupper(), fields.items()))
+        return list(fields.values())
+        
 
 class MetadataParser:
     __STRIP_BRACKETS = r"()[]* "
@@ -58,15 +123,11 @@ class MetadataParser:
 
     def __parse_artists(self):
         artists = Regexes.DASH_SPLITTER_REGEX.split(self.__filename)[0]
-        self.artists = self.__split_artists(artists)
+        self.artists = self.split_list(artists)
         for artist in self.artists:
             self.__filename = self.__filename.replace(artist, "")
         self.__filename = Regexes.ARTIST_SPLIT_REGEX.sub("", self.__filename)
         self.__filename = Regexes.DASH_SPLITTER_REGEX.sub("", self.__filename)
-
-    def __split_artists(self, string: str) -> list[str]:
-        string = Regexes.ARTIST_SPLIT_REGEX.sub(",", string)
-        return list(filter(lambda artist: artist != "", string.split(",")))
 
     def __parse_feature(self):
         matches = re.findall("\\b(?:ft|feat)\.?\s*[^()\[\]-]*", self.__filename, re.I)
@@ -83,7 +144,7 @@ class MetadataParser:
             self.withs.append(re.sub("\\bwith\.?\s*", "", match, flags = re.I).strip())
             self.__filename = self.__filename.replace(match, "")
         self.__filename = re.sub("\(\s*\)", "", self.__filename)
-        
+    
     def __parse_brackets(self):
         for match in Regexes.BRACKET_REGEX.findall(self.__filename):
             # Extended
@@ -100,7 +161,7 @@ class MetadataParser:
             # Remix
             elif Regexes.VERSION_REGEX.search(match):
                 remix_type = match.strip(self.__STRIP_BRACKETS).split()[-1].title()
-                remixers = self.__split_artists(re.sub(remix_type, "", match, flags = re.I).strip(self.__STRIP_BRACKETS))
+                remixers = self.split_list(re.sub(remix_type, "", match, flags = re.I).strip(self.__STRIP_BRACKETS))
                 if len(remixers) != 0:
                     self.remixers[remix_type] = remixers
 
@@ -148,6 +209,68 @@ class MetadataParser:
         if self.year: meta_dict["year"] = self.year
 
         return meta_dict
+
+
+    @staticmethod
+    def parse_versions(string: str) -> tuple[str, dict[str, list[str]] | None]:
+        title = string
+        versions = {}
+        for match in Regexes.REMIX_REGEX.finditer(string):
+            group = match.group(1)
+            if re.search(r"[()\[\]-]", group): continue
+            split = group.split()
+            version = split.pop(-1).capitalize()
+            versions[version] = MetadataParser.split_list(" ".join(split).strip())
+            title = title.replace(match.group(0), "").strip()
+        if versions == {}: return string, None
+        return title, versions
+
+    @staticmethod
+    def parse_feature(string: str) -> tuple[str, list[str] | None]:
+        title = Regexes.FEAT_REGEX.sub("", string)
+        artists = Regexes.FEAT_REGEX_GROUPED.search(string)
+        if not artists: return string, None
+        return title, MetadataParser.split_list(artists.group(1))
+
+    @staticmethod
+    def parse_with(string: str) -> tuple[str, list[str] | None]:
+        title = Regexes.WITH_REGEX.sub("", string)
+        artists = Regexes.WITH_REGEX_GROUPED.search(string)
+        if not artists: return string, None
+        return title, MetadataParser.split_list(artists.group(1))
+
+    @staticmethod
+    def parse_extended(string: str) -> tuple[str, str | None]:
+        title = string
+        version = None
+        for match in Regexes.EXTENDED_REGEX.finditer(string):
+            version = match.group(0)
+            title = title.replace(version, "")
+        return title, version
+
+    @staticmethod
+    def parse_dash_version(string: str) -> tuple[str, dict[str, str] | None]:
+        """Parses a title with dashes instead of brackets
+
+        Returns
+            `song_title`: str
+            `list_of_versions`: [str]
+        Example
+            Cold Heart - PNAU & PS1 Remix - Acoustic
+            -> ("Cold Heart", ["PNAU & PS1 Remix", "Acoustic"])
+        """
+        if not Regexes.DASH_SPLITTER_REGEX.search(string):
+            return string, None
+
+        parts = Regexes.DASH_SPLITTER_REGEX.split(string)
+        title = parts.pop(0)
+
+        return title, parts
+
+    @staticmethod
+    def split_list(string: str) -> list[str]:
+        string = Regexes.ARTIST_SPLIT_REGEX.sub(",", string)
+        return list(filter(lambda artist: artist != "", string.split(",")))
 
     # GET PRETTY STRINGS
     @staticmethod
@@ -224,7 +347,6 @@ Album Artist:   {self.get_album_artist()}
 Year:           {self.year}
 Genre:          {self.genre}"""
 
-
 # EMBED METADATA TO FILE
 def embed_metadata(filepath: Path, no_overwrite: bool = False, **kwargs):
     try:
@@ -278,9 +400,11 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, no_overwrite: bool 
     tags.save()
 
 if __name__ == "__main__":
-    parse = MetadataParser(
-        "[FREE DL] Riton & Kah-Lo - Fake ID (ÅMRTÜM Edit)")
-    print(parse)
-    print(f"{parse.artists=}")
-    print(f"{parse.remixers=}")
-    print(f"{parse.version=}")
+    # parse = MetadataParser(
+    #     "[FREE DL] Riton & Kah-Lo - Fake ID (ÅMRTÜM Edit)")
+    # print(parse)
+    # print(f"{parse.artists=}")
+    # print(f"{parse.remixers=}")
+    # print(f"{parse.version=}")
+
+    print(MetadataFields.all())

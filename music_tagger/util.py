@@ -100,15 +100,18 @@ __GENRES = [
 ]
 
 __VERSIONS = [
+    "Acoustic",
     "Bootleg",
     "Edit",
+    "Edition",
     "Flip",
     "Mashup",
     "Mix",
     "Remaster",
     "Remastered",
     "Remix",
-    "Rework"
+    "Rework",
+    "Version",
 ]
 
 __IGNORE = [
@@ -123,7 +126,7 @@ __IGNORE = [
 __FEATURING = [
     "Feat",
     "Featuring",
-    "Ft"
+    "ft"
 ]
 
 __EXTENDED = [
@@ -136,9 +139,17 @@ BRACKET_REGEX = re.compile(r"[*(\[].*?(?:[*)\]]|$)", re.I)
 DASH_SPLITTER_REGEX = re.compile(r"(?:^|\s+)[-–—](?:\s+|$)")
 WITH_REGEX = re.compile(r"\b(with)\b", re.I)
 YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b")
+# Should be replaced with: " - "
+FEAT_REGEX = re.compile(r"(?:^|\(|\[|-)?\s*(?:" + r"|".join(__FEATURING) + r")\b.+?(?:\)|\]|-\s+|$)\s*", re.I)
+FEAT_REGEX_GROUPED = re.compile(r"(?:feat|featuring|ft)(?:\.\s*|\s+)(.+?)(?:\)|\]|\s+-|$)", re.I)
+WITH_REGEX = re.compile(r"(?:^|\(|\[|-)?\s*with\b.+?(?:\)|\]|-\s+|$)\s*", re.I)
+WITH_REGEX_GROUPED = re.compile(r"with\s+(.+?)(?:\)|\]|\s+-|$)", re.I)
+
+REMIX_REGEX = re.compile(r"(?:\(|\[|-\s*)(.*?(?:" + r"|".join(__VERSIONS) + r"))(?:\)|\]|\s+-|$)", re.I)
+
+CLEAN_SPACES_REGEX = re.compile(r"\s{2,}")
 
 EXTENDED_REGEX = __list_to_regex(__EXTENDED)
-FEAT_REGEX = __list_to_regex(__FEATURING)
 GENRE_REGEX = __list_to_regex(__GENRES)
 IGNORE_REGEX = __list_to_regex(__IGNORE)
 VERSION_REGEX = __list_to_regex(__VERSIONS)

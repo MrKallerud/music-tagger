@@ -7,13 +7,14 @@ from music_tagger.music_file import MusicFile
 from music_tagger.shazam_track import ShazamTrack
 from music_tagger.soundcloud import SoundCloudAPI, SoundCloudTrack
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
+from music_tagger.metadata import MetadataParser
 
 class MatchError(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
 
 class Matcher:
-    __THRESHOLD = 0.8
+    __THRESHOLD = 0.9
     __MIN_THRESHOLD = 0.6
 
     track = SpotifyTrack | SoundCloudTrack | ShazamTrack
@@ -46,6 +47,10 @@ class Matcher:
         all_results = dict(filter(lambda item: item[0].get_album_type() in album_types, all_results.items()))
         if len(all_results.keys()) == 0: raise MatchError("No matching album types")
 
+        print(music_file.get_filename())
+        print(music_file.to_string())
+        print(all_results)
+
         all_results = dict(sorted(all_results.items(), key=lambda item: item[1], reverse=True))
         if suppress: return list(all_results.items())[0]
 
@@ -77,60 +82,81 @@ class Matcher:
     def __match(music_file: MusicFile, api: api) -> dict[track, float] | None:
         try:
             results = api.search(music_file.get_filename())
-            if music_file.metadata:
+            if music_file.get_filename() != music_file.to_string():
                 results.extend(api.search(music_file.to_string()))
             results = list(dict.fromkeys(results))
             return Matcher.__check_results(music_file, results)
         except HTTPError as e:
             print(e.request.url)
             return None
-
     
     @staticmethod
     def __check_results(music_file: MusicFile, results: list[track]) -> dict[track, float] | None:
         if len(results) == 0: return None
-        matches = {} 
-        matchable_formats = []
+        matches = {}
 
-        if music_file.metadata and music_file.get_artist() and music_file.get_title():
-            if music_file.get_album():
-                matchable_formats.append(
-                    music_file.get_artist() + " - " + \
-                    music_file.get_title() + " " + \
-                    music_file.get_album())
-
-            matchable_formats.append(music_file.get_artist() + " - " + music_file.get_title())
-            matchable_formats.append(music_file.get_title() + " - " + music_file.get_artist())
-
-        matchable_formats.append(music_file.get_filename())
-
-        if " - " in music_file.get_filename():
-            split = music_file.get_filename().split(" - ")
-            matchable_formats.append(" - ".join([split[1], split[0]]))
-
-        for format in matchable_formats:
-            for result in results:
-                matchable_result_formats = [
-                    result.get_artist() + " - " + result.get_title() + " " + result.get_album(),
-                    result.get_title()
-                ]
-
-                for result_format in matchable_result_formats:
-                    ratio = Matcher.__compare_strings(format, result_format)
-                    if (result in matches.keys() and matches.get(result) > ratio):
-                        continue
-                    matches[result] = ratio
+        for result in results:
+            print(f"Comparing {music_file} // {result}")
+            ratio = Matcher.__compare_result(music_file, result)
+            matches[result] = ratio
 
         if len(matches.keys()) == 0: return None
         return dict(sorted(matches.items(), key=lambda item: item[1], reverse=True))
 
     @staticmethod
-    def __compare_strings(str1: str, str2: str) -> float:
+    def __compare_result(music_file: MusicFile, result: track):
+        # Compare filename
+        filename_match = max(
+            Matcher.__compare_strings(music_file.get_filename(), result.get_filename()),
+            Matcher.__compare_strings(music_file.to_string(), result.to_string()),
+            Matcher.__compare_strings(music_file.get_filename(), result.to_string()),
+            Matcher.__compare_strings(music_file.to_string(), result.get_filename())
+        )
+
+        # Compare duration
+        duration_match = min(1 - abs(music_file.get_duration() - result.get_duration()), 0)
+
+        # Compare metadata
+        parsed_metadata = MetadataParser(music_file.get_filename())
+        title_match = Matcher.__compare_metadata("title", music_file, parsed_metadata, result)
+        artist_match = Matcher.__compare_metadata("artist", music_file, parsed_metadata, result)
+        album_match = Matcher.__compare_metadata("album", music_file, parsed_metadata, result)
+
+        return sum([filename_match, duration_match, title_match]) / 3
+
+    @staticmethod
+    def __compare_metadata(key: str, file: MusicFile, parsed_file: MetadataParser, result: track) -> float:
+        file_value = file.get_metadata(key)
+        try: file_parsed_value = getattr(parsed_file, key)
+        except AttributeError: file_parsed_value = None
+        try: result_value = getattr(result, key)
+        except AttributeError: result_value = None
+        try: result_parsed_value = getattr(result.metadata_parser, key)
+        except AttributeError: result_parsed_value = None
+
+        print(f"{file_value=}")
+        print(f"{file_parsed_value=}")
+        print(f"{result_value=}")
+        print(f"{result_parsed_value=}")
+
+        comparisons = [0]
+        comparisons.append(Matcher.__compare_strings(file_value, result_value))
+        comparisons.append(Matcher.__compare_strings(file_parsed_value, result_value))
+        comparisons.append(Matcher.__compare_strings(file_parsed_value, result_parsed_value))
+        comparisons.append(Matcher.__compare_strings(file_value, result_parsed_value))
+
+        return max(filter(None, comparisons))
+
+    @staticmethod
+    def __compare_version(parsed_file: MetadataParser, result: track) -> float:
+        file_versions = [parsed_file.version]
+        file_versions.extend(parsed_file.remixers)
+
+    @staticmethod
+    def __compare_strings(str1: str, str2: str) -> float | None:
+        if not str1 or not str2: return None
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
 
 if __name__ == "__main__":
-    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/Artillery (PSY MIX).mp3"), suppress = True))
-    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/tmp/vetikke.mp3")))
-    # print(Matcher.identify(MusicFile("/Users/ruud/Desktop/begrn.mp3"), suppress = True))
-    print(Matcher.identify(MusicFile("/Users/ruud/Desktop/låter 2/Imanbek & BYOR - Belly Dancer (Extended Mix).mp3"), suppress=True))
+    print(Matcher.identify(MusicFile("/Users/ruud/Development/music-tagger/tests/test_files/Elton John, Dua Lipa - Cold Heart (Claptone .mp3"), suppress=True))

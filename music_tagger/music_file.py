@@ -2,8 +2,8 @@ import os, mutagen
 from pathlib import Path
 
 from music_tagger.metadata import embed_artwork, embed_metadata
-from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3NoHeaderError, TIT2, TPE1, TALB
+from collections.abc import Sequence
+import audio_metadata
 
 class MusicFile:
     def __init__(self, filepath: str):
@@ -12,7 +12,9 @@ class MusicFile:
         if not self.path.exists():
             raise FileNotFoundError()
 
-        self.metadata = self.__get_embedded_metadata()
+        metadata = audio_metadata.load(self.path)
+        self.__stream = dict(metadata.get("streaminfo"))
+        self.__metadata = dict(metadata.get("tags"))
         self.identity = None
 
     def get_ext(self) -> str:
@@ -21,30 +23,15 @@ class MusicFile:
     def get_filename(self) -> str:
         return self.path.with_suffix('').name
 
-    def get_title(self) -> str | None:
-        title = self.metadata.get("TIT2")
-        if not title: title = self.metadata.get("title")
-        if title is TIT2: return title.text
-        if title is list and len(title) != 0: return title[0]
-        return title
+    def get_metadata(self, key: str = None) -> str | None:
+        if not key: return self.__metadata
+        value = self.__metadata.get(key)
+        if isinstance(value, Sequence) and len(value) != 0:
+            return value[0]
+        return value
 
-    def get_artist(self) -> str | None:
-        artist = self.metadata.get("TPE1")
-        if not artist: artist = self.metadata.get("artist")
-        if artist is TPE1: return artist.text
-        if artist is list and len(artist) != 0: return artist[0]
-        return artist
-
-    def get_album(self) -> str | None:
-        album = self.metadata.get("TPE1")
-        if not album: album = self.metadata.get("album")
-        if album is TALB: return album.text
-        if album is list and len(album) != 0: return album[0]
-        return album
-
-    def get_duration(self) -> int:
-        file = mutagen.File(self.path)
-        return round(file.info.length)
+    def get_duration(self) -> float:
+        return self.__stream.get("duration") * 1000
     
     def read(self):
         return self.path.read_bytes()
@@ -53,13 +40,6 @@ class MusicFile:
         from music_tagger.matcher import Matcher
         self.identity, ratio = Matcher.identify(self, suppress = suppress)
         return self.identity, ratio
-
-    def __get_embedded_metadata(self) -> dict | None:
-        try: tags = EasyID3(self.path)
-        except ID3NoHeaderError: return None
-        clean_tags = {}
-        for key in tags: clean_tags[key] = tags[key][0]
-        return clean_tags
 
     def convert(self, format: str = ".mp3", no_overwrite: bool = False):
         print("Converting...")
@@ -103,18 +83,18 @@ class MusicFile:
         self.rename(f"{match.get_artist()} - {match.get_title()}")
 
     def to_string(self) -> str:
-        ret = ""
-        try: ret += self.get_artist() + " - " + self.get_title()
-        except (KeyError, TypeError): pass
-        try: ret += " - " + self.get_album()
-        except (KeyError, TypeError): pass
-        if ret != "": return ret
+        if self.get_metadata("artist") and self.get_metadata("title"):
+            return self.get_metadata("artist") + " - " + self.get_metadata("title")
         return self.get_filename()
 
     def __repr__(self) -> str:
         return self.to_string()
 
 if __name__ == "__main__":
-    file = MusicFile("/Users/ruud/Development/music-tagger/tests/test_files/Black V Neck - Sex, Drugs, Alcohol.mp3")
-    id, rate = file.identify(True)
-    print(f"{(rate * 100)}% - {id}")
+    file = MusicFile("/Users/ruud/Development/music-tagger/tests/test_files/Lee Cabrera Mike Vale - Shake It (Antho Deck.wav")
+    print(file.get_metadata())
+    file = MusicFile("/Users/ruud/Development/music-tagger/tests/test_files/Riton _ Kah-Lo - Fake ID.mp3")
+    print(file.get_metadata())
+
+    #id, rate = file.identify(True)
+    #print(f"{(rate * 100)}% - {id}")

@@ -4,7 +4,9 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger import util
-from music_tagger.metadata import MetadataParser
+from music_tagger.metadata import MetadataParser as parser
+from music_tagger.metadata import MetadataFields as meta
+from music_tagger.track import Track, Artist, Album
 
 class SpotifyAPI:
     NAME = "Spotify"
@@ -26,7 +28,7 @@ class SpotifyAPI:
         return SpotifyAPI.__access_token
 
     @staticmethod
-    def search(query: str = "", track: str = None, artist: str = None, album: str = None, isrc: str = None, limit: int = 5, offset: int = 0, type: str = "track") -> list:
+    def search(query: str = "", track: str = None, artist: str = None, album: str = None, isrc: str = None, limit: int = 5, offset: int = 0, type: str = "track") -> list[Track]:
         url = "/v1/search"
         if track: query += f" track:{track}"
         if artist: query += f" artist:{artist}"
@@ -44,7 +46,57 @@ class SpotifyAPI:
         
         response = requests.get(urljoin(SpotifyAPI.API_BASE, url), params, headers = headers)
         response.raise_for_status()
-        return [SpotifyTrack(result) for result in response.json().get("tracks").get("items")]
+        return [SpotifyAPI.get_track(result) for result in response.json().get("tracks").get("items")]
+
+    @staticmethod
+    def get_track(data: dict[str, any]) -> Track:
+        original_title = data.get("name")
+        _, extended = parser.parse_extended(original_title)
+        title, featuring = parser.parse_feature(original_title)
+        title, withs = parser.parse_with(title)
+        title, versions = parser.parse_versions(title)
+        title, details = parser.parse_dash_version(title)
+
+        return Track({
+            meta.ALBUM: SpotifyAPI.get_album(data.get("album")),
+            meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
+            meta.DURATION: data.get("duration_ms"),
+            meta.EXPLICIT: data.get("explicit"),
+            meta.EXTENDED: extended,
+            meta.FEATURING: featuring,
+            meta.ID: data.get("id"),
+            meta.ISRC: data.get("external_ids").get("isrc"),
+            meta.NAME: title,
+            meta.PLATFORM: "Spotify",
+            meta.POPULARITY: data.get("popularity"),
+            meta.VERSIONS: versions,
+            meta.TRACK_NUMBER: data.get("track_number"),
+            meta.URL: SpotifyAPI.WEBURL_BASE + "/track/" + data.get("id"),
+            meta.DETAILS: details,
+            meta.WITH: withs,
+        })
+
+    @staticmethod
+    def get_artist(data: dict[str, any]) -> Artist:
+        return Artist({
+            meta.GENRE: data.get("genres"),
+            meta.ID: data.get("id"),
+            meta.NAME: data.get("name"),
+            meta.URL: SpotifyAPI.WEBURL_BASE + "/artist/" + data.get("id"),
+        })
+
+    @staticmethod
+    def get_album(data: dict[str, any]) -> Album:
+        return Album({
+            meta.ALBUM_TYPE: data.get("album_type"),
+            meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
+            meta.DATE: data.get("release_date"),
+            meta.ID: data.get("id"),
+            meta.IMAGE: data.get("images")[0].get("url"),
+            meta.NAME: data.get("name"),
+            meta.TRACK_COUNT: data.get("total_tracks"),
+            meta.URL: SpotifyAPI.WEBURL_BASE + "/album/" + data.get("id"),
+        })
 
     @staticmethod
     def get_audio_features(id: str):
@@ -56,19 +108,19 @@ class SpotifyAPI:
 
 class SpotifyTrack:
     def __init__(self, data: dict):
-        self.__album = SpotifyAlbum(data.get("album"))
+        self.album = SpotifyAlbum(data.get("album"))
         self.__artists = [SpotifyArtist(artist) for artist in data.get("artists")]
+        self.__duration = data.get("duration_ms")
         self.__explicit = data.get("explicit")
         self.__features = None
         self.__id = data.get("id")
         self.__is_extended = None
         self.__isrc = data.get("external_ids").get("isrc")
-        self.__name: str = data.get("name")
-        self.__duration = data.get("duration_ms")
         self.__popularity = data.get("popularity")
         self.__remixers = {}
-        self.__track_number = data.get("track_number")
-        self.__version = None
+        self.title: str = data.get("name")
+        self.track_number = data.get("track_number")
+        self.version = None
 
         self.__parse_extended()
         self.__parse_brackets()
@@ -82,7 +134,7 @@ class SpotifyTrack:
 
     def get_title(self) -> str:
         brackets = "()"
-        ret = self.__name
+        ret = self.title
 
         if len(self.__remixers.keys()) > 0:
             for kind, remixers in self.__remixers.items():
@@ -91,13 +143,13 @@ class SpotifyTrack:
                 ret += kind + brackets[1]
                 brackets = "[]"
         elif self.__is_extended:
-            if self.__version:
-                self.__version = "Extended " + self.__version
+            if self.version:
+                self.version = "Extended " + self.version
             else:
-                self.__version = "Extended Mix"
+                self.version = "Extended Mix"
 
-        if self.__version:
-            ret += " " + brackets[0] + self.__version + brackets[1]
+        if self.version:
+            ret += " " + brackets[0] + self.version + brackets[1]
 
         return ret
 
@@ -106,25 +158,25 @@ class SpotifyTrack:
 
     def get_album_artist(self) -> str:
         # TODO: Various Artists
-        return self.__album.artists[0]
+        return self.album.artists[0]
 
     def get_album(self) -> str:
-        return self.__album.name
+        return self.album.name
 
     def get_album_type(self) -> str:
-        return self.__album.album_type
+        return self.album.album_type
     
     def get_isrc(self) -> str:
         return self.__isrc
 
     def get_year(self) -> str:
-        return self.__album.get_year()
+        return self.album.get_year()
 
     def get_artwork(self) -> str:
-        return self.__album.artwork_url
+        return self.album.artwork_url
 
-    def get_duration(self) -> int:
-        return round(self.__duration / 1000)
+    def get_duration(self) -> float:
+        return self.__duration
 
     def __get_audio_features(self):
         if self.__features: return self.__features
@@ -144,49 +196,52 @@ class SpotifyTrack:
         return self.__get_audio_features().get_musical_key()
 
     def get_genre(self) -> str | None:
-        genres = self.__album.artists[0].genres
+        genres = self.album.artists[0].genres
         if genres: return genres[0]
 
     def get_label(self): return None
     def get_spotify_metadata(self): return None
 
     def __parse_extended(self):
-        if util.EXTENDED_REGEX.search(self.__name):
+        if util.EXTENDED_REGEX.search(self.title):
             self.__is_extended = True
 
     def __parse_brackets(self):
-        for match in util.BRACKET_REGEX.findall(self.__name):
+        for match in util.BRACKET_REGEX.findall(self.title):
             self.__parse_version(match)
 
             if util.FEAT_REGEX.search(match) or util.WITH_REGEX.search(match):
-                self.__name = self.__name.replace(match, "")
+                self.title = self.title.replace(match, "")
 
             # Clean up string
-            self.__name = re.sub(r"[(\[].*?[)\]]", "", self.__name)
-            self.__name = re.sub(r"\s+", " ", self.__name).strip()
+            self.title = re.sub(r"[(\[].*?[)\]]", "", self.title)
+            self.title = re.sub(r"\s+", " ", self.title).strip()
 
     def __parse_dash(self):
-        if not util.DASH_SPLITTER_REGEX.search(self.__name): return
-        split = util.DASH_SPLITTER_REGEX.split(self.__name)
+        if not util.DASH_SPLITTER_REGEX.search(self.title): return
+        split = util.DASH_SPLITTER_REGEX.split(self.title)
         self.__parse_version(split[-1])
 
         # Clean up string
-        self.__name = split[0]
-        self.__name = re.sub(r"\s+", " ", self.__name).strip()
+        self.title = split[0]
+        self.title = re.sub(r"\s+", " ", self.title).strip()
 
     def __parse_version(self, match: str):
         if not util.VERSION_REGEX.search(match): return
         parts = match.split()
         if util.YEAR_REGEX.search(match) or len(parts) == 1:
-            self.__version = match
+            self.version = match
             return
 
         remix_type = parts[-1].title()
         remixers = util.ARTIST_SPLIT_REGEX.split(match.replace(remix_type, "").strip())
         self.__remixers[remix_type] = remixers
 
+    def get_filename(self) -> str:
+        return self.to_string()
+
     def to_string(self) -> str:
-        return f"{self.get_artist()} - {self.get_title()} - {self.get_album()}"
+        return f"{self.get_artist()} - {self.get_title()}"
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__) and self.get_isrc() == other.get_isrc()
@@ -309,5 +364,5 @@ class SpotifyAudioFeatures:
 if __name__ == "__main__":
     # Quick tests
     print(SpotifyAPI.get_access_token())
-    for result in SpotifyAPI.search("Cold H)eart Claptone Extended remix"):
+    for result in SpotifyAPI.search("( Remix)", limit=20):
         print(result)

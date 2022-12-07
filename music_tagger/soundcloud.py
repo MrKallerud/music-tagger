@@ -13,6 +13,8 @@ from music_tagger import colors as Color
 from music_tagger.util import FOLDER
 from music_tagger.metadata import MetadataParser
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
+from music_tagger.metadata import MetadataFields as meta
+from music_tagger.track import Track, Artist, Album
 
 ssl_verify=True
 
@@ -105,10 +107,58 @@ class SoundCloudAPI:
     
         return [SoundCloudTrack(result) for result in response.json().get("collection")]
 
+    @staticmethod
+    def get_track(data: dict[str, any]) -> Track:
+        trackdata = {}
+        trackdata[meta.PLATFORM] = "SoundCloud"
+        trackdata[meta.NAME] = data.get("title")
+        trackdata[meta.DESCRIPTION] = data.get("description")
+        trackdata[meta.DURATION] = data.get("duration")
+        trackdata[meta.GENRE] = data.get("genre")
+        trackdata[meta.ID] = data.get("id")
+        trackdata[meta.LABEL] = data.get("label_name")
+        trackdata[meta.DOWNLOAD] = data.get("purchase_url")
+        trackdata[meta.TAGS] = set([tag.strip() for tag in re.split("\s*\\\"\s*(?:\\\")?", data.get("tag_list")) if tag != ''])
+        trackdata[meta.URL] = data.get("permalink_url")
+        trackdata[meta.ARTISTS] = [SoundCloudAPI.get_track(data.get("permalink_url"))]
+        trackdata[meta.ALBUM] = SoundCloudAPI.get_album(data)
+        
+        pub_met = data.get("publisher metadata")
+        if pub_met:
+            artist = pub_met.get("artist")
+            if artist: trackdata[meta.ARTISTS] = artist # TODO: SPLIT
+            release_title = pub_met.get("release_title")
+            if release_title: trackdata[meta.NAME] = release_title
+            
+            trackdata[meta.ALBUM].metadata[meta.NAME] = pub_met.get("album_title")
+            trackdata[meta.ISRC] = pub_met.get("isrc")
+            trackdata[meta.EXPLICIT] = pub_met.get("explicit")
+
+    @staticmethod
+    def get_artist(data: dict[str, any]) -> Artist:
+        artistdata = {}
+        artistdata[meta.NAME] = data.get("full_name") if data.get("full_name") else data.get("username")
+        artistdata[meta.DESCRIPTION] = data.get("description")
+        artistdata[meta.IMAGE] = data.get("avatar_url")
+        artistdata[meta.ID] = data.get("id")
+        artistdata[meta.URL] = data.get("permalink_url")
+
+        return Artist(artistdata)
+
+    @staticmethod
+    def get_album(data: dict[str, any]) -> Album:
+        albumdata = {}
+        albumdata[meta.IMAGE] = data.get("artwork_url"),
+        albumdata[meta.DATE] = data.get("release_date") if data.get("release_date") else data.get("created_at"),
+        albumdata[meta.ALBUM_TYPE] = "Single",  # TODO: Parse
+
+        return Album(albumdata)
+
 class SoundCloudTrack:
     def __init__(self, data: dict):
         self.__artwork_url = data.get("artwork_url")
         self.__date = data.get("release_date") if data.get("release_date") else data.get("created_at")
+        # TODO: Parse metadata from description eg. bpm, key, urls...
         self.__description = data.get("description")
         self.__duration = data.get("duration")
         self.__genre = data.get("genre")
@@ -121,17 +171,17 @@ class SoundCloudTrack:
         self.__user = SoundCloudUser(data.get("user"))
 
         self.__publisher_metadata = data.get("publisher_metadata")
-        self.__metadata_parser = MetadataParser(self.__title)
+        self.metadata_parser = MetadataParser(self.__title)
 
     def get_title(self) -> str:
         # if self.__publisher_metadata:
         #     title = self.__publisher_metadata.get("release_title")
         #     if title: return title
-        return self.__metadata_parser.get_title()
+        return self.metadata_parser.get_title()
 
     def get_artist(self) -> str:
-        if self.__metadata_parser.get_artist():
-            return self.__metadata_parser.get_artist()
+        if self.metadata_parser.get_artist():
+            return self.metadata_parser.get_artist()
 
         if self.__publisher_metadata:
             artist = self.__publisher_metadata.get("artist")
@@ -139,16 +189,16 @@ class SoundCloudTrack:
         return self.__user.get_name()
 
     def get_album_artist(self) -> str:
-        if self.__metadata_parser.get_album_artist():
-            return self.__metadata_parser.get_album_artist()
+        if self.metadata_parser.get_album_artist():
+            return self.metadata_parser.get_album_artist()
         return self.__user.get_name()
 
     def is_explicit(self) -> bool | None:
         if self.__publisher_metadata:
             return self.__publisher_metadata.get("explicit")
 
-    def get_duration(self) -> int:
-        return round(self.__duration / 1000)
+    def get_duration(self) -> float:
+        return self.__duration
 
     def get_isrc(self) -> str:
         if self.__publisher_metadata:
@@ -158,7 +208,7 @@ class SoundCloudTrack:
         if self.__publisher_metadata:
             album_title = self.__publisher_metadata.get("album_title")
             if album_title: return album_title
-        return self.__metadata_parser.get_album()
+        return self.metadata_parser.get_album()
 
     def get_genre(self) -> str:
         return self.__genre
@@ -194,6 +244,9 @@ class SoundCloudTrack:
         if self.__publisher_metadata and self.__publisher_metadata.get("isrc"):
             try: return SpotifyAPI.search(isrc = self.__publisher_metadata.get("isrc"))[0]
             except IndexError: return None
+
+    def get_filename(self) -> str:
+        return self.__title
 
     def to_string(self) -> str:
         return f"{self.get_artist()} - {self.get_title()}"
