@@ -1,12 +1,13 @@
 import json, re, requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 from music_tagger import colors as Color
 from music_tagger import util
 from music_tagger.metadata import MetadataParser as parser
 from music_tagger.metadata import MetadataFields as meta
-from music_tagger.track import Track, Artist, Album
+from music_tagger.track import Track, Artist, Album, Artwork
 
 class SpotifyAPI:
     NAME = "Spotify"
@@ -63,6 +64,7 @@ class SpotifyAPI:
             meta.DURATION: data.get("duration_ms"),
             meta.EXPLICIT: data.get("explicit"),
             meta.EXTENDED: extended,
+            meta.ORIIGINALFILENAME: original_title,
             meta.FEATURING: features,
             meta.ID: data.get("id"),
             meta.ISRC: data.get("external_ids").get("isrc"),
@@ -90,9 +92,9 @@ class SpotifyAPI:
         return Album({
             meta.ALBUM_TYPE: data.get("album_type"),
             meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
-            meta.DATE: data.get("release_date"),
+            meta.DATE: parser.parse_date(data.get("release_date")),
             meta.ID: data.get("id"),
-            meta.IMAGE: data.get("images")[0].get("url"),
+            meta.IMAGE: Artwork(data.get("images")[0].get("url")),
             meta.NAME: data.get("name"),
             meta.TRACK_COUNT: data.get("total_tracks"),
             meta.URL: SpotifyAPI.WEBURL_BASE + "/album/" + data.get("id"),
@@ -364,5 +366,5 @@ class SpotifyAudioFeatures:
 if __name__ == "__main__":
     # Quick tests
     print(SpotifyAPI.get_access_token())
-    for result in SpotifyAPI.search("( Remix)", limit=20):
-        print(result)
+    for result in SpotifyAPI.search("you", limit=50):
+        print(result.get(meta.ALBUM).get(meta.DATE))

@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from os.path import join
 from pathlib import Path
 from ssl import SSLContext
@@ -14,7 +15,7 @@ from music_tagger.util import FOLDER
 from music_tagger.metadata import MetadataParser as parser
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
 from music_tagger.metadata import MetadataFields as meta
-from music_tagger.track import Track, Artist, Album
+from music_tagger.track import Track, Artist, Album, Artwork
 
 ssl_verify=True
 
@@ -130,7 +131,7 @@ class SoundCloudAPI:
             
             isrc = pub_met.get("isrc")
             explicit = pub_met.get("explicit")
-        
+
         return Track({
             meta.ALBUM: SoundCloudAPI.get_album(data),
             meta.ARTISTS: [Artist(artist) for artist in artists] if artists else [user],
@@ -139,6 +140,7 @@ class SoundCloudAPI:
             meta.DURATION: data.get("duration"),
             meta.EXPLICIT: explicit,
             meta.EXTENDED: extended,
+            meta.ORIIGINALFILENAME: original_name,
             meta.FEATURING: features,
             meta.GENRE: data.get("genre"),
             meta.ID: data.get("id"),
@@ -154,24 +156,27 @@ class SoundCloudAPI:
 
     @staticmethod
     def get_artist(data: dict[str, any]) -> Artist:
-        artistdata = {}
-        artistdata[meta.NAME] = data.get("full_name") if data.get("full_name") else data.get("username")
-        artistdata[meta.DESCRIPTION] = data.get("description")
-        artistdata[meta.IMAGE] = data.get("avatar_url")
-        artistdata[meta.ID] = data.get("id")
-        artistdata[meta.URL] = data.get("permalink_url")
-
-        return Artist(artistdata)
+        return Artist({
+            meta.NAME: data.get("full_name") if data.get("full_name") else data.get("username"),
+            meta.DESCRIPTION: data.get("description"),
+            meta.IMAGE: Artwork(data.get("avatar_url").replace("large", "t500x500")),
+            meta.ID: data.get("id"),
+            meta.URL: data.get("permalink_url"),
+        })
 
     @staticmethod
     def get_album(data: dict[str, any]) -> Album:
         song_name = parser.parse_title(data.get("title"))
         album_name = data.get("publisher metadata", {}).get("album_title")
 
+        release_date = data.get("release_date")
+        date = release_date if release_date else data.get("created_at")
+        date = datetime.strptime(date, r"%Y-%m-%dT%H:%M:%SZ")
+
         return Album({
             meta.NAME: album_name,
-            meta.IMAGE: data.get("artwork_url"),
-            meta.DATE: data.get("release_date") if data.get("release_date") else data.get("created_at"),
+            meta.IMAGE: Artwork(data.get("artwork_url").replace("large", "t500x500")),
+            meta.DATE: date,
             meta.ALBUM_TYPE: parser.parse_album_type(song_name, album_name)
         })
 

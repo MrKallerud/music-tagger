@@ -9,19 +9,20 @@ from mutagen.id3 import APIC, ID3, ID3NoHeaderError
 from PIL import Image
 from PIL.Image import Resampling
 from pathlib import Path
+from datetime import datetime
 
 from music_tagger import colors as Color
 from music_tagger import util as Regexes
 
 class MetadataFields:
-    NAME = "title"
-    ARTISTS = "artists"
     ALBUM = "album"
     ALBUM_ARTIST = "albumartist"
-
     ALBUM_TYPE = "albumtype"
+    ARTISTS = "artist"
+    COMPOSERS = "composer"
     DATE = "date"
     DESCRIPTION = "comment"
+    DETAILS = "version"
     DOWNLOAD = "buy_url"
     DURATION = "length"
     EXPLICIT = "itunesadvisory"
@@ -33,15 +34,17 @@ class MetadataFields:
     ISRC = "isrc"
     KEY = "initialkey"
     LABEL = "organization"
+    NAME = "title"
+    ORIIGINALFILENAME = "originalfilename"
     PLATFORM = "platform"
     POPULARITY = "popularimeter"
-    VERSIONS = "remixers"
     TAGS = "tags"
     TEMPO = "bpm"
+    TEXT = "usertext"
     TRACK_COUNT = "trackcount"
     TRACK_NUMBER = "tracknumber"
     URL = "website"
-    DETAILS = "version"
+    VERSIONS = "remixers"
     WITH = "with"
 
     # "albumartistsort"
@@ -54,7 +57,6 @@ class MetadataFields:
     # "barcode"
     # "catalognumber"
     # "compilation"
-    # "composer"
     # "composersort"
     # "conductor"
     # "copyright"
@@ -211,6 +213,19 @@ class MetadataParser:
         return meta_dict
 
     @staticmethod
+    def parse_date(string: str) -> datetime | None:
+        if not string: return None
+        sep = "-"
+        if " " in string: sep = " "
+        if "." in string: sep = "."
+        format = r"%Y-%m-%dT%H:%M:%SZ"
+        if re.fullmatch(r"\d{4}", string): format = r"%Y"
+        if re.fullmatch(r"\d{4}\W\d{2}", string): format = f"%Y{sep}%m"
+        if re.fullmatch(r"\d{4}\W\d{2}\W\d{2}", string): format = f"%Y{sep}%m{sep}%d"
+
+        return datetime.strptime(string, format)
+
+    @staticmethod
     def parse_filetypes(string: str) -> tuple[str, str | None]:
         filetype = None
         for filetype in Regexes.FILETYPE_REGEX.finditer(string):
@@ -276,6 +291,8 @@ class MetadataParser:
             version = split.pop(-1).capitalize()
             versions[version] = MetadataParser.split_list(" ".join(split).strip())
             title = title.replace(match.group(0), "").strip()
+
+        if versions.get("Mix") == []: del versions["Mix"]
         if versions == {}: return string, None
         return title, versions
 

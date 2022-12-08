@@ -67,8 +67,8 @@ __GENRES = [
     "Pop",
     "Pop/Funk",
     "Pranks",
-    "Psychadelic",
     "Psy Trance",
+    "Psychadelic",
     "Punk",
     "R&B",
     "Rap",
@@ -79,6 +79,8 @@ __GENRES = [
     "Rock",
     "Showtunes",
     "Ska",
+    "Slap House",
+    "Slap",
     "Soul",
     "Sound Clip",
     "Soundtrack",
@@ -130,7 +132,7 @@ __EXTENDED = [
     "Original"
 ]
 
-ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|\+|_|x|&)\s+", re.I)
+ARTIST_SPLIT_REGEX = re.compile(r"\s*,\s*|\s+(?:,|vs|\+|_|·|//|x|&)\s+", re.I)
 BRACKET_REGEX = re.compile(r"[*(\[].*?(?:[*)\]]|$)", re.I)
 DASH_SPLITTER_REGEX = re.compile(r"(?:^|\s+)[-–—](?:\s+|$)")
 WITH_REGEX = re.compile(r"\b(with)\b", re.I)
