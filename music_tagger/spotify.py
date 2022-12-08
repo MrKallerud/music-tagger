@@ -52,7 +52,7 @@ class SpotifyAPI:
     def get_track(data: dict[str, any]) -> Track:
         original_title = data.get("name")
         _, extended = parser.parse_extended(original_title)
-        title, featuring = parser.parse_feature(original_title)
+        title, features = parser.parse_feature(original_title)
         title, withs = parser.parse_with(title)
         title, versions = parser.parse_versions(title)
         title, details = parser.parse_dash_version(title)
@@ -63,11 +63,11 @@ class SpotifyAPI:
             meta.DURATION: data.get("duration_ms"),
             meta.EXPLICIT: data.get("explicit"),
             meta.EXTENDED: extended,
-            meta.FEATURING: featuring,
+            meta.FEATURING: features,
             meta.ID: data.get("id"),
             meta.ISRC: data.get("external_ids").get("isrc"),
             meta.NAME: title,
-            meta.PLATFORM: "Spotify",
+            meta.PLATFORM: SpotifyAPI.NAME,
             meta.POPULARITY: data.get("popularity"),
             meta.VERSIONS: versions,
             meta.TRACK_NUMBER: data.get("track_number"),

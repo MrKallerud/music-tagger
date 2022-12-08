@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger.util import FOLDER
-from music_tagger.metadata import MetadataParser
+from music_tagger.metadata import MetadataParser as parser
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
 from music_tagger.metadata import MetadataFields as meta
 from music_tagger.track import Track, Artist, Album
@@ -105,34 +105,52 @@ class SoundCloudAPI:
             if not tries: response.raise_for_status()
             return SoundCloudAPI.search(query, limit, offset, tries - 1)
     
-        return [SoundCloudTrack(result) for result in response.json().get("collection")]
+        return [SoundCloudAPI.get_track(result) for result in response.json().get("collection")]
 
     @staticmethod
     def get_track(data: dict[str, any]) -> Track:
-        trackdata = {}
-        trackdata[meta.PLATFORM] = "SoundCloud"
-        trackdata[meta.NAME] = data.get("title")
-        trackdata[meta.DESCRIPTION] = data.get("description")
-        trackdata[meta.DURATION] = data.get("duration")
-        trackdata[meta.GENRE] = data.get("genre")
-        trackdata[meta.ID] = data.get("id")
-        trackdata[meta.LABEL] = data.get("label_name")
-        trackdata[meta.DOWNLOAD] = data.get("purchase_url")
-        trackdata[meta.TAGS] = set([tag.strip() for tag in re.split("\s*\\\"\s*(?:\\\")?", data.get("tag_list")) if tag != ''])
-        trackdata[meta.URL] = data.get("permalink_url")
-        trackdata[meta.ARTISTS] = [SoundCloudAPI.get_track(data.get("permalink_url"))]
-        trackdata[meta.ALBUM] = SoundCloudAPI.get_album(data)
-        
-        pub_met = data.get("publisher metadata")
+        original_name = data.get("title")
+        name = parser.clean_title(original_name)
+        name, _ = parser.parse_filetypes(name)
+        name, features = parser.parse_feature(name)
+        name, withs = parser.parse_with(name)
+        name, artists = parser.parse_artists(name)
+        name, extended = parser.parse_extended(name)
+        name, versions = parser.parse_versions(name)
+        user = SoundCloudAPI.get_artist(data.get("user"))
+        isrc = None
+        explicit = None
+
+        pub_met: dict = data.get("publisher metadata")
         if pub_met:
             artist = pub_met.get("artist")
-            if artist: trackdata[meta.ARTISTS] = artist # TODO: SPLIT
+            if artist and not artists: artists = parser.split_list(artist)
             release_title = pub_met.get("release_title")
-            if release_title: trackdata[meta.NAME] = release_title
+            if release_title: name = release_title
             
-            trackdata[meta.ALBUM].metadata[meta.NAME] = pub_met.get("album_title")
-            trackdata[meta.ISRC] = pub_met.get("isrc")
-            trackdata[meta.EXPLICIT] = pub_met.get("explicit")
+            isrc = pub_met.get("isrc")
+            explicit = pub_met.get("explicit")
+        
+        return Track({
+            meta.ALBUM: SoundCloudAPI.get_album(data),
+            meta.ARTISTS: [Artist(artist) for artist in artists] if artists else [user],
+            meta.DESCRIPTION: data.get("description"),
+            meta.DOWNLOAD: data.get("purchase_url"),
+            meta.DURATION: data.get("duration"),
+            meta.EXPLICIT: explicit,
+            meta.EXTENDED: extended,
+            meta.FEATURING: features,
+            meta.GENRE: data.get("genre"),
+            meta.ID: data.get("id"),
+            meta.ISRC: isrc,
+            meta.LABEL: data.get("label_name"),
+            meta.NAME: name,
+            meta.PLATFORM: SoundCloudAPI.NAME,
+            meta.TAGS: set([tag.strip() for tag in re.split("\s*\\\"\s*(?:\\\")?", data.get("tag_list")) if tag != '']),
+            meta.URL: data.get("permalink_url"),
+            meta.VERSIONS: versions,
+            meta.WITH: withs,
+        })
 
     @staticmethod
     def get_artist(data: dict[str, any]) -> Artist:
@@ -147,12 +165,15 @@ class SoundCloudAPI:
 
     @staticmethod
     def get_album(data: dict[str, any]) -> Album:
-        albumdata = {}
-        albumdata[meta.IMAGE] = data.get("artwork_url"),
-        albumdata[meta.DATE] = data.get("release_date") if data.get("release_date") else data.get("created_at"),
-        albumdata[meta.ALBUM_TYPE] = "Single",  # TODO: Parse
+        song_name = parser.parse_title(data.get("title"))
+        album_name = data.get("publisher metadata", {}).get("album_title")
 
-        return Album(albumdata)
+        return Album({
+            meta.NAME: album_name,
+            meta.IMAGE: data.get("artwork_url"),
+            meta.DATE: data.get("release_date") if data.get("release_date") else data.get("created_at"),
+            meta.ALBUM_TYPE: parser.parse_album_type(song_name, album_name)
+        })
 
 class SoundCloudTrack:
     def __init__(self, data: dict):
@@ -288,7 +309,6 @@ class SoundCloudUser:
 
 if __name__ == "__main__":
     # Quick tests
-    results = SoundCloudAPI.search(
-        "HUGEL Feat. Lorna & Jenn Morel - Tamo Loco (Extended) Available everywhere !")
+    results: list[Track] = SoundCloudAPI.search("unholy remix", limit=20)
     for result in results:
         print(result)

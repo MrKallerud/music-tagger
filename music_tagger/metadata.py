@@ -210,6 +210,60 @@ class MetadataParser:
 
         return meta_dict
 
+    @staticmethod
+    def parse_filetypes(string: str) -> tuple[str, str | None]:
+        filetype = None
+        for filetype in Regexes.FILETYPE_REGEX.finditer(string):
+            string = string.replace(filetype.group(0), "")
+        return string, filetype
+
+    @staticmethod
+    def parse_album_type(song_name: str, album_name: str) -> str:
+        if not album_name: return "Single"
+        if re.search(r"- single\s*$", album_name, re.I): return "Single"
+        if re.search(r"- ep?\s*$", album_name, re.I): return "EP"
+        if song_name.lower() not in album_name.lower(): return "Album"
+        return "Single"
+
+    @staticmethod
+    def parse_title(string: str) -> tuple[str, str]:
+        if Regexes.DASH_SPLITTER_REGEX.search(string):
+            string = Regexes.AFTER_DASH_REGEX.search(string).group(1)
+        title = Regexes.BEFORE_BRACK_DASH_REGEX.search(string).group(1)
+        return string.replace(title, ""), title
+
+    @staticmethod
+    def parse_genre(string: str) -> tuple[str, str | None]:
+        genres = []
+        for genre in Regexes.GENRE_REGEX.finditer(string):
+            genres.append(genre)
+            string = string.replace(genre, "")
+        return string, genres if len(genres) != 0 else None
+
+    @staticmethod
+    def parse_year(string: str) -> tuple[str, str | None]:
+        year = Regexes.YEAR_REGEX.search(string)
+        if not year: return string, None
+        string = string.replace(year, "")
+        year = re.sub("k", "0", string, flags=re.I)
+        return string, year
+
+    @staticmethod
+    def clean_title(string: str) -> str:
+        string = string.replace("–—", "-")
+        for match in Regexes.BRACKET_REGEX.findall(string):
+            if not Regexes.IGNORE_REGEX.search(match): continue
+            string = string.replace(match, "")
+        string = Regexes.EMPTY_BRACKETS_REGEX.sub(" ", string)
+        string = Regexes.MULTIPLE_SPACES_REGEX.sub(" ", string)
+        return string.strip(" -+.,&#")
+
+    @staticmethod
+    def parse_artists(string: str) -> tuple[str, list[str] | None]:
+        if not Regexes.DASH_SPLITTER_REGEX.search(string): return string, None
+        split = Regexes.DASH_SPLITTER_REGEX.split(string)
+        artists = MetadataParser.split_list(split.pop(0))
+        return " ".join(split), artists
 
     @staticmethod
     def parse_versions(string: str) -> tuple[str, dict[str, list[str]] | None]:
@@ -227,10 +281,10 @@ class MetadataParser:
 
     @staticmethod
     def parse_feature(string: str) -> tuple[str, list[str] | None]:
-        title = Regexes.FEAT_REGEX.sub("", string)
-        artists = Regexes.FEAT_REGEX_GROUPED.search(string)
-        if not artists: return string, None
-        return title, MetadataParser.split_list(artists.group(1))
+        match = Regexes.FEAT_REGEX.search(string)
+        if not match: return string, None
+        string = string.replace(match.group(0).strip(r"-()[]* "), "")
+        return MetadataParser.clean_title(string), MetadataParser.split_list(match.group(1))
 
     @staticmethod
     def parse_with(string: str) -> tuple[str, list[str] | None]:
@@ -407,4 +461,5 @@ if __name__ == "__main__":
     # print(f"{parse.remixers=}")
     # print(f"{parse.version=}")
 
-    print(MetadataFields.all())
+    string = " Hei [FREE DOWNLOAD] () "
+    print(f"'{MetadataParser.clean_title(string)}'")
