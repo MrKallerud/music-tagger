@@ -40,7 +40,7 @@ class Track:
         if extended and extended not in name:
             name += " " + brackets[0] + f"{extended} Mix" + brackets[1]
 
-        return parser.clean_title(name)
+        return parser.clean_string(name)
 
     def get_artists(self) -> str:
         all_artists = []

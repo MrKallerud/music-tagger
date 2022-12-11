@@ -111,7 +111,7 @@ class SoundCloudAPI:
     @staticmethod
     def get_track(data: dict[str, any]) -> Track:
         original_name = data.get("title")
-        name = parser.clean_title(original_name)
+        name = parser.clean_string(original_name)
         name, _ = parser.parse_filetypes(name)
         name, features = parser.parse_feature(name)
         name, withs = parser.parse_with(name)

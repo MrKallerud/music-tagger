@@ -56,7 +56,7 @@ class MusicFile:
 
     def get_track(self) -> Track:
         original_name = self.__first(self.__metadata.get(meta.NAME), self.get_filename())
-        name = parser.clean_title(original_name)
+        name = parser.clean_string(original_name)
         name, _ = parser.parse_filetypes(name)
         name, features = parser.parse_feature(name)
         if features: features = [Artist(feature) for feature in features]
@@ -151,9 +151,12 @@ class MusicFile:
 if __name__ == "__main__":
     for file in Path("/Users/ruud/Desktop/låter").iterdir():
         if file.suffix not in AUDIO_FORMATS: continue
-        if not 'One Faded' in file.name: continue
-
+        if not 'Osama' in file.name: continue
+        #if not 'Loca People' in file.name: continue
+        print(file.name)
         file = MusicFile(file)
+        print(file.get_metadata(meta.NAME))
         track = file.get_track()
         print(f"{track}")
-        print(track.get())
+        print(f"{track.get(meta.FEATURING)}")
+        #print(track.get())

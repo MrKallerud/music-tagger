@@ -236,7 +236,7 @@ class MetadataParser:
     def parse_album_type(song_name: str, album_name: str) -> str:
         if not album_name: return "Single"
         if re.search(r"- single\s*$", album_name, re.I): return "Single"
-        if re.search(r"- ep?\s*$", album_name, re.I): return "EP"
+        if re.search(r"- ep\s*$", album_name, re.I): return "EP"
         if song_name.lower() not in album_name.lower(): return "Album"
         return "Single"
 
@@ -264,7 +264,7 @@ class MetadataParser:
         return string, year
 
     @staticmethod
-    def clean_title(string: str) -> str:
+    def clean_string(string: str) -> str:
         string = string.replace("–—", "-")
         for match in Regexes.BRACKET_REGEX.findall(string):
             if not Regexes.IGNORE_REGEX.search(match): continue
@@ -287,9 +287,11 @@ class MetadataParser:
         for match in Regexes.REMIX_REGEX.finditer(string):
             group = match.group(1)
             if re.search(r"[()\[\]-]", group): continue
-            split = group.split()
-            version = split.pop(-1).capitalize()
-            versions[version] = MetadataParser.split_list(" ".join(split).strip())
+            version = [str(word).capitalize() for word in Regexes.VERSION_REGEX.findall(group)]
+            split = re.sub(" ".join(version), "", group, flags = re.I)
+            unnessecary = ["Edit", "Version", "Mix"]
+            if len(version) > 1 and version[-1] in unnessecary: version.pop(-1)
+            versions[" ".join(version)] = MetadataParser.split_list(" ".join(split).strip())
             title = title.replace(match.group(0), "").strip()
 
         if versions.get("Mix") == []: del versions["Mix"]
@@ -301,7 +303,7 @@ class MetadataParser:
         match = Regexes.FEAT_REGEX.search(string)
         if not match: return string, None
         string = string.replace(match.group(0).strip(r"-()[]* "), "")
-        return MetadataParser.clean_title(string), MetadataParser.split_list(match.group(1))
+        return MetadataParser.clean_string(string), MetadataParser.split_list(match.group(1))
 
     @staticmethod
     def parse_with(string: str) -> tuple[str, list[str] | None]:
@@ -341,7 +343,8 @@ class MetadataParser:
     @staticmethod
     def split_list(string: str) -> list[str]:
         string = Regexes.ARTIST_SPLIT_REGEX.sub(",", string)
-        return list(filter(lambda artist: artist != "", string.split(",")))
+        l = [MetadataParser.clean_string(word) for word in string.split(",")]
+        return list(filter(lambda artist: artist != "", l))
 
     # GET PRETTY STRINGS
     @staticmethod
@@ -479,4 +482,4 @@ if __name__ == "__main__":
     # print(f"{parse.version=}")
 
     string = " Hei [FREE DOWNLOAD] () "
-    print(f"'{MetadataParser.clean_title(string)}'")
+    print(f"'{MetadataParser.clean_string(string)}'")
