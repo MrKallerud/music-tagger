@@ -56,8 +56,21 @@ class Track:
 
         return parser.pretty_list(all_artists)
 
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, self.__class__) and (\
+            (self.get(meta.ISRC) and self.get(meta.ISRC) == other.get(meta.ISRC)) or \
+            (self.get(meta.ID) and self.get(meta.ID) == other.get(meta.ID)) or \
+            (str(self) == str(other)))
+
+    def __hash__(self) -> int:
+        if self.get(meta.ISRC): return hash(self.get(meta.ISRC))
+        if self.get(meta.ID): return hash(self.get(meta.ID))
+        return hash(str(self))
+
     def __repr__(self) -> str:
-        return self.get_artists() + " - " + self.get_name()
+        return parser.clean_string(
+            (self.get_artists() if self.get_artists() else "") + " - " +
+            (self.get_name() if self.get_name() else ""))
 
 class Artist:
     def __init__(self, data: dict[str, any] | str):
@@ -65,12 +78,19 @@ class Artist:
             data = {meta.NAME: data}
         self.__metadata = {k: v for k, v in data.items() if v is not None}
 
-    def get(self, key: str = None):
+    def get(self, key: str = None, default = None):
         if not key: return self.__metadata
-        return self.__metadata.get(key)
+        item = self.__metadata.get(key, default)
+        return item if item else default
 
     def get_name(self) -> str:
         return self.get(meta.NAME)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
+
+    def __hash__(self) -> int:
+        return hash(self.get_name().lower())
 
     def __repr__(self) -> str:
         return self.get_name()
@@ -81,12 +101,19 @@ class Album:
             data = {meta.NAME: data}
         self.__metadata = {k: v for k, v in data.items() if v is not None}
 
-    def get(self, key: str = None):
+    def get(self, key: str = None, default = None):
         if not key: return self.__metadata
-        return self.__metadata.get(key)
+        item = self.__metadata.get(key, default)
+        return item if item else default
 
     def get_name(self) -> str:
         return self.get(meta.NAME)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
+
+    def __hash__(self) -> int:
+        return hash(self.get_name().lower())
 
     def __repr__(self) -> str:
         return self.get_name()
@@ -118,7 +145,7 @@ class Artwork:
     def __download_image(self, url: str) -> Image:
         import io
         import requests
-        print("Donwloading artwork...")
+        print("Downloading artwork...")
         r = requests.get(url)
         r.raise_for_status()
         return Image.open(io.BytesIO(r.content))

@@ -140,7 +140,7 @@ class SoundCloudAPI:
             meta.DURATION: data.get("duration"),
             meta.EXPLICIT: explicit,
             meta.EXTENDED: extended,
-            meta.ORIIGINALFILENAME: original_name,
+            meta.ORIGINALFILENAME: original_name,
             meta.FEATURING: features,
             meta.GENRE: data.get("genre"),
             meta.ID: data.get("id"),

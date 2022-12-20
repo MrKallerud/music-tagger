@@ -58,25 +58,22 @@ class MusicFile:
         original_name = self.__first(self.__metadata.get(meta.NAME), self.get_filename())
         name = parser.clean_string(original_name)
         name, _ = parser.parse_filetypes(name)
-        name, features = parser.parse_feature(name)
-        if features: features = [Artist(feature) for feature in features]
-        name, withs = parser.parse_with(name)
-        if withs: withs = [Artist(w) for w in withs]
-        name, artists = parser.parse_artists(name)
         name, extended = parser.parse_extended(name)
         name, versions = parser.parse_versions(name)
 
         data = self.__metadata.copy()
-        all_artists = artists if artists else [] + parser.split_list(",".join(data.get(meta.ARTISTS, [])))
-        all_artists = list(dict.fromkeys(all_artists))
+        data[meta.ORIGINALFILENAME] = self.get_filename()
+        
+        data[meta.FEATURING] = self.__find_artists(data, parser.parse_feature)
+        data[meta.ARTISTS] = [parser.parse_feature(self.__first(data.get(meta.ARTISTS)))[0]]
 
-        data[meta.NAME] = parser.parse_title(name)[1]
-        data[meta.FEATURING] = features
-        data[meta.WITH] = withs
+        data[meta.WITH] = self.__find_artists(data, parser.parse_with)
+        data[meta.ARTISTS] = [parser.parse_with(self.__first(data.get(meta.ARTISTS)))[0]]
+
+        data[meta.ARTISTS] = self.__find_artists(data)
         data[meta.EXTENDED] = extended
-        data[meta.ORIIGINALFILENAME] = self.get_filename()
+        data[meta.NAME] = parser.parse_title(name)[1]
         data[meta.VERSIONS] = versions
-        data[meta.ARTISTS] = [Artist(artist) for artist in all_artists]
         if data.get(meta.ALBUM): data[meta.ALBUM] = self.__get_album(data)
         if data.get("key"): data[meta.KEY] = data.pop("key")
         if data.get(meta.COMPOSERS): data[meta.COMPOSERS] = parser.split_list(",".join(data.get(meta.COMPOSERS)))
@@ -89,6 +86,7 @@ class MusicFile:
 
         # Convert lists with one item to just the item
         for key, value in data.items():
+            if isinstance(value, Sequence) and len(value) == 0: data[key] = None
             if not isinstance(value, Sequence) or len(value) != 1 or not isinstance(value[0], str): continue
             data[key] = self.__first(value)
 
@@ -109,6 +107,23 @@ class MusicFile:
     def __first(self, list: list, default: any = None) -> any:
         try: return list[0]
         except (IndexError, TypeError): return default
+
+    def __find_artists(self, data: dict, method: callable = parser.parse_artists) -> list[Artist]:
+        _, artists = method(data.get(meta.ORIGINALFILENAME))
+
+        title = self.__first(data.get(meta.NAME))
+        if title:
+            _, from_title = method(title)
+            artists.extend(from_title)
+
+        artist = self.__first(data.get(meta.ARTISTS))
+        if artist:
+            artist += " - "
+            _, from_artist = method(artist)
+            artists.extend(from_artist)
+
+        artists = [Artist(artist) for artist in artists]
+        return list(dict.fromkeys(artists))
 
     def write_metadata(self, no_overwrite: bool = False):
         from music_tagger.soundcloud import SoundCloudTrack
@@ -151,12 +166,9 @@ class MusicFile:
 if __name__ == "__main__":
     for file in Path("/Users/ruud/Desktop/låter").iterdir():
         if file.suffix not in AUDIO_FORMATS: continue
-        if not 'Osama' in file.name: continue
-        #if not 'Loca People' in file.name: continue
-        print(file.name)
+        if not 'Tamo Loco' in file.name: continue
         file = MusicFile(file)
-        print(file.get_metadata(meta.NAME))
         track = file.get_track()
         print(f"{track}")
-        print(f"{track.get(meta.FEATURING)}")
-        #print(track.get())
+        print(track.get())
+        #exit(0)

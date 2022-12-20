@@ -1,7 +1,6 @@
 import json, re, requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-from datetime import datetime
 
 from music_tagger import colors as Color
 from music_tagger import util
@@ -64,7 +63,7 @@ class SpotifyAPI:
             meta.DURATION: data.get("duration_ms"),
             meta.EXPLICIT: data.get("explicit"),
             meta.EXTENDED: extended,
-            meta.ORIIGINALFILENAME: original_title,
+            meta.ORIGINALFILENAME: original_title,
             meta.FEATURING: features,
             meta.ID: data.get("id"),
             meta.ISRC: data.get("external_ids").get("isrc"),
