@@ -82,22 +82,23 @@ class MetadataFields:
 
 class MetadataParser:
     def __init__(self, string: str):
-        if not isinstance(string, str): raise TypeError(f"MetadataParser can only parse from string, not {string.__class__.__name__}")
-        self.__metadata = {MetadataFields.ORIGINALFILENAME: string}
+        if not isinstance(string, str): raise TypeError(f"MetadataParser can only parse from string, not {string.__class__.__name__}.")
+        if string == "": self.metadata = {}; return
+        self.metadata = {MetadataFields.ORIGINALFILENAME: string}
 
-        self.__metadata[MetadataFields.DATE] = self.parse_date(self.parse_year(string)[1])
-        _     , self.__metadata[MetadataFields.GENRE] = self.parse_genre(string)
-        string, self.__metadata[MetadataFields.FEATURING] = self.parse_feature(string)
-        string, self.__metadata[MetadataFields.WITH] = self.parse_with(string)
-        string, self.__metadata[MetadataFields.VERSIONS] = self.parse_versions(string)
-        string, self.__metadata[MetadataFields.ARTISTS] = self.parse_artists(string)
-        string, self.__metadata[MetadataFields.NAME] = self.parse_title(string)
+        self.metadata[MetadataFields.DATE] = self.parse_date(self.parse_year(string)[1])
+        _,      self.metadata[MetadataFields.GENRE] = self.parse_genre(string)
+        string, self.metadata[MetadataFields.FEATURING] = self.parse_feature(string)
+        string, self.metadata[MetadataFields.WITH] = self.parse_with(string)
+        string, self.metadata[MetadataFields.VERSIONS] = self.parse_versions(string)
+        string, self.metadata[MetadataFields.ARTISTS] = self.parse_artists(string)
+        string, self.metadata[MetadataFields.NAME] = self.parse_title(string)
 
-        self.__metadata = {k: v for k, v in self.__metadata.items() if v != [] and v is not None}
+        self.metadata = {k: v for k, v in self.metadata.items() if v != [] and v is not None}
 
     def as_track(self):
         from music_tagger.track import Track
-        return Track(self.__metadata)
+        return Track(self.metadata)
 
     @staticmethod
     def parse_date(string: str) -> datetime | None:

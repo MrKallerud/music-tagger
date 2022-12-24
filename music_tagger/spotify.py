@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger import util
-from music_tagger.metadata import MetadataParser as parser
+from music_tagger.metadata import MetadataParser as Parser
 from music_tagger.metadata import MetadataFields as meta
 from music_tagger.track import Track, Artist, Album, Artwork
 
@@ -51,11 +51,11 @@ class SpotifyAPI:
     @staticmethod
     def get_track(data: dict[str, any]) -> Track:
         original_title = data.get("name")
-        _, extended = parser.parse_extended(original_title)
-        title, features = parser.parse_feature(original_title)
-        title, withs = parser.parse_with(title)
-        title, versions = parser.parse_versions(title)
-        title, details = parser.parse_dash_version(title)
+        _, extended = Parser.parse_extended(original_title)
+        title, features = Parser.parse_feature(original_title)
+        title, withs = Parser.parse_with(title)
+        title, versions = Parser.parse_versions(title)
+        title, details = Parser.parse_dash_version(title)
 
         return Track({
             meta.ALBUM: SpotifyAPI.get_album(data.get("album")),
@@ -91,7 +91,7 @@ class SpotifyAPI:
         return Album({
             meta.ALBUM_TYPE: data.get("album_type"),
             meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
-            meta.DATE: parser.parse_date(data.get("release_date")),
+            meta.DATE: Parser.parse_date(data.get("release_date")),
             meta.ID: data.get("id"),
             meta.IMAGE: Artwork(data.get("images")[0].get("url")),
             meta.NAME: data.get("name"),

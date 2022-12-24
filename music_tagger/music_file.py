@@ -6,7 +6,7 @@ from pathlib import Path
 from music_tagger.metadata import embed_artwork, embed_metadata
 from collections.abc import Sequence
 from music_tagger.track import Track, Artist, Album, Artwork
-from music_tagger.metadata import MetadataParser as parser
+from music_tagger.metadata import MetadataParser as Parser
 from music_tagger.metadata import MetadataFields as meta
 from music_tagger.util import AUDIO_FORMATS
 
@@ -43,10 +43,10 @@ class MusicFile:
     def read(self):
         return self.path.read_bytes()
 
-    def convert(self, format: str = ".mp3", no_overwrite: bool = False):
+    def convert(self, format: str = ".mp3", keep_original: bool = False):
         print("Converting...")
         os.system(f"ffmpeg -i \"{self.path}\" -map_metadata 0 -v error -y -vn -ac 2 -id3v2_version 4 -b:a 320k \"{self.path.with_suffix('')}{format}\"")
-        if not no_overwrite: os.remove(self.path)
+        if not keep_original: os.remove(self.path)
         self.path = Path(self.path.with_suffix(format))
         return self
 
@@ -54,29 +54,57 @@ class MusicFile:
         print("Renaming...")
         self.path = self.path.rename(os.path.join(self.path.parent, filename + self.get_ext()))
 
+    def as_track(self) -> Track:
+        parsed_filename = Parser(self.get_filename())
+        try: parsed_title = Parser(self.__first(self.__metadata.get(meta.NAME), ""))
+        except TypeError: parsed_title = Parser("")
+        try: parsed_artists = Parser(self.__first(self.__metadata.get(meta.ARTISTS) + " - " if self.__metadata.get(meta.ARTISTS) else [], ""))
+        except TypeError: parsed_artists = Parser("")
+
+        metadata = self.__metadata.copy()
+        for parser in [parsed_filename, parsed_title, parsed_artists]:
+            for key, value in parser.metadata.items():
+                if metadata.get(key) and len(metadata.get(key)) >= len(value): continue
+                if isinstance(value, Sequence) and len(value) == 0: continue
+
+                metadata[key] = value
+
+        return Track(self.__filter_dict(metadata))
+
+    def __filter_dict(self, data: dict) -> dict[str, any]:
+        for key, value in data.items():
+            if not isinstance(value, Sequence) or len(value) != 1 or not isinstance(value[0], str): continue
+            data[key] = self.__first(value)
+            if (key == meta.ARTISTS or key == meta.FEATURING or key == meta.WITH) and isinstance(data.get(key), str):
+                data[key] = [Artist(artist) for artist in data[key]]
+            elif key == meta.VERSIONS:
+                # TODO: Check if artists are str.
+                data[key] = {k: [Artist(artist) for artist in v]for k, v in data[key].items() if v is not None}
+        return {k: v for k, v in data.items() if v != [] and v != "" and v is not None}
+
     def get_track(self) -> Track:
         original_name = self.__first(self.__metadata.get(meta.NAME), self.get_filename())
-        name = parser.clean_string(original_name)
-        name, _ = parser.parse_filetypes(name)
-        name, extended = parser.parse_extended(name)
-        name, versions = parser.parse_versions(name)
+        name = Parser.clean_string(original_name)
+        name, _ = Parser.parse_filetypes(name)
+        name, extended = Parser.parse_extended(name)
+        name, versions = Parser.parse_versions(name)
 
         data = self.__metadata.copy()
         data[meta.ORIGINALFILENAME] = self.get_filename()
         
-        data[meta.FEATURING] = self.__find_artists(data, parser.parse_feature)
-        data[meta.ARTISTS] = [parser.parse_feature(self.__first(data.get(meta.ARTISTS)))[0]]
+        data[meta.FEATURING] = self.__find_artists(data, Parser.parse_feature)
+        data[meta.ARTISTS] = [Parser.parse_feature(self.__first(data.get(meta.ARTISTS)))[0]]
 
-        data[meta.WITH] = self.__find_artists(data, parser.parse_with)
-        data[meta.ARTISTS] = [parser.parse_with(self.__first(data.get(meta.ARTISTS)))[0]]
+        data[meta.WITH] = self.__find_artists(data, Parser.parse_with)
+        data[meta.ARTISTS] = [Parser.parse_with(self.__first(data.get(meta.ARTISTS)))[0]]
 
         data[meta.ARTISTS] = self.__find_artists(data)
         data[meta.EXTENDED] = extended
-        data[meta.NAME] = parser.parse_title(name)[1]
+        data[meta.NAME] = Parser.parse_title(name)[1]
         data[meta.VERSIONS] = versions
         if data.get(meta.ALBUM): data[meta.ALBUM] = self.__get_album(data)
         if data.get("key"): data[meta.KEY] = data.pop("key")
-        if data.get(meta.COMPOSERS): data[meta.COMPOSERS] = parser.split_list(",".join(data.get(meta.COMPOSERS)))
+        if data.get(meta.COMPOSERS): data[meta.COMPOSERS] = Parser.split_list(",".join(data.get(meta.COMPOSERS)))
         if data.get(meta.DESCRIPTION): data[meta.DESCRIPTION] = self.__first(data.pop(meta.DESCRIPTION)).text
 
         # Handle User Text
@@ -94,8 +122,8 @@ class MusicFile:
 
     def __get_album(self, data: dict[str, any]) -> Album:
         name = self.__first(data.pop(meta.ALBUM))
-        artists = parser.split_list(",".join(data.pop(meta.ALBUM_ARTIST, [])))
-        date = parser.parse_date(self.__first(data.pop(meta.DATE)))
+        artists = Parser.split_list(",".join(data.pop(meta.ALBUM_ARTIST, [])))
+        date = Parser.parse_date(self.__first(data.pop(meta.DATE)))
 
         return Album({
             meta.NAME: name,
@@ -104,11 +132,11 @@ class MusicFile:
             meta.DATE: date,
         })
 
-    def __first(self, list: list, default: any = None) -> any:
-        try: return list[0]
+    def __first(self, lst: list, default: any = None) -> any:
+        try: return lst[0]
         except (IndexError, TypeError): return default
 
-    def __find_artists(self, data: dict, method: callable = parser.parse_artists) -> list[Artist]:
+    def __find_artists(self, data: dict, method: callable = Parser.parse_artists) -> list[Artist]:
         _, artists = method(data.get(meta.ORIGINALFILENAME))
 
         title = self.__first(data.get(meta.NAME))
@@ -168,7 +196,7 @@ if __name__ == "__main__":
         if file.suffix not in AUDIO_FORMATS: continue
         if not 'Tamo Loco' in file.name: continue
         file = MusicFile(file)
-        track = file.get_track()
+        track = file.as_track()
         print(f"{track}")
         print(track.get())
         #exit(0)

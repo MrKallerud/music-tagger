@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger.util import FOLDER
-from music_tagger.metadata import MetadataParser as parser
+from music_tagger.metadata import MetadataParser as Parser
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
 from music_tagger.metadata import MetadataFields as meta
 from music_tagger.track import Track, Artist, Album, Artwork
@@ -111,13 +111,13 @@ class SoundCloudAPI:
     @staticmethod
     def get_track(data: dict[str, any]) -> Track:
         original_name = data.get("title")
-        name = parser.clean_string(original_name)
-        name, _ = parser.parse_filetypes(name)
-        name, features = parser.parse_feature(name)
-        name, withs = parser.parse_with(name)
-        name, artists = parser.parse_artists(name)
-        name, extended = parser.parse_extended(name)
-        name, versions = parser.parse_versions(name)
+        name = Parser.clean_string(original_name)
+        name, _ = Parser.parse_filetypes(name)
+        name, features = Parser.parse_feature(name)
+        name, withs = Parser.parse_with(name)
+        name, artists = Parser.parse_artists(name)
+        name, extended = Parser.parse_extended(name)
+        name, versions = Parser.parse_versions(name)
         user = SoundCloudAPI.get_artist(data.get("user"))
         isrc = None
         explicit = None
@@ -125,7 +125,7 @@ class SoundCloudAPI:
         pub_met: dict = data.get("publisher metadata")
         if pub_met:
             artist = pub_met.get("artist")
-            if artist and not artists: artists = parser.split_list(artist)
+            if artist and not artists: artists = Parser.split_list(artist)
             release_title = pub_met.get("release_title")
             if release_title: name = release_title
             
@@ -166,7 +166,7 @@ class SoundCloudAPI:
 
     @staticmethod
     def get_album(data: dict[str, any]) -> Album:
-        song_name = parser.parse_title(data.get("title"))
+        song_name = Parser.parse_title(data.get("title"))
         album_name = data.get("publisher metadata", {}).get("album_title")
 
         release_date = data.get("release_date")
@@ -177,7 +177,7 @@ class SoundCloudAPI:
             meta.NAME: album_name,
             meta.IMAGE: Artwork(data.get("artwork_url").replace("large", "t500x500")),
             meta.DATE: date,
-            meta.ALBUM_TYPE: parser.parse_album_type(song_name, album_name)
+            meta.ALBUM_TYPE: Parser.parse_album_type(song_name, album_name)
         })
 
 class SoundCloudTrack:

@@ -3,7 +3,7 @@ from PIL import Image
 from PIL.Image import Resampling
 
 from music_tagger.metadata import MetadataFields as meta
-from music_tagger.metadata import MetadataParser as parser
+from music_tagger.metadata import MetadataParser as Parser
 
 
 class Track:
@@ -29,7 +29,7 @@ class Track:
             brackets = "[]"
 
         for version, artists in self.get(meta.VERSIONS, {}).items():
-            artists = parser.pretty_list(artists)
+            artists = Parser.pretty_list(artists)
             if artists: artists += " "
             if extended and extended not in version and extended not in name:
                 name += f" {brackets[0]}{artists}{extended} {version}{brackets[1]}"
@@ -40,7 +40,7 @@ class Track:
         if extended and extended not in name:
             name += " " + brackets[0] + f"{extended} Mix" + brackets[1]
 
-        return parser.clean_string(name)
+        return Parser.clean_string(name)
 
     def get_artists(self) -> str:
         all_artists = []
@@ -54,7 +54,7 @@ class Track:
         all_artists = [str(artist) for artist in all_artists]
         all_artists = list(dict.fromkeys(all_artists))
 
-        return parser.pretty_list(all_artists)
+        return Parser.pretty_list(all_artists)
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__) and (\
@@ -68,7 +68,7 @@ class Track:
         return hash(str(self))
 
     def __repr__(self) -> str:
-        return parser.clean_string(
+        return Parser.clean_string(
             (self.get_artists() if self.get_artists() else "") + " - " +
             (self.get_name() if self.get_name() else ""))
 
