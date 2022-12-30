@@ -55,31 +55,34 @@ class MusicFile:
         self.path = self.path.rename(os.path.join(self.path.parent, filename + self.get_ext()))
 
     def as_track(self) -> Track:
-        parsed_filename = Parser(self.get_filename())
-        try: parsed_title = Parser(self.__first(self.__metadata.get(meta.NAME), ""))
+        parsed_filename = Parser(self.get_filename(), as_strings=False)
+        try: parsed_title = Parser(self.__first(self.__metadata.get(meta.NAME), ""), as_strings=False)
         except TypeError: parsed_title = Parser("")
-        try: parsed_artists = Parser(self.__first(self.__metadata.get(meta.ARTISTS) + " - " if self.__metadata.get(meta.ARTISTS) else [], ""))
+        try: parsed_artists = Parser(self.__first(self.__metadata.get(meta.ARTISTS), "") + " - " if self.__metadata.get(meta.ARTISTS) else [], as_strings=False)
         except TypeError: parsed_artists = Parser("")
 
         metadata = self.__metadata.copy()
         for parser in [parsed_filename, parsed_title, parsed_artists]:
             for key, value in parser.metadata.items():
-                if metadata.get(key) and len(metadata.get(key)) >= len(value): continue
+                if value is None: continue
                 if isinstance(value, Sequence) and len(value) == 0: continue
+                existing = metadata.get(key)
+                if isinstance(existing, (list, dict)) and existing.__class__ == value.__class__:
+                    for element in value:
+                        if element in existing: continue
+                        metadata[key] = existing.append(element)
+                else: metadata[key] = value
 
-                metadata[key] = value
+        metadata[meta.ORIGINALFILENAME] = self.get_filename()
 
         return Track(self.__filter_dict(metadata))
 
     def __filter_dict(self, data: dict) -> dict[str, any]:
         for key, value in data.items():
             if not isinstance(value, Sequence) or len(value) != 1 or not isinstance(value[0], str): continue
-            data[key] = self.__first(value)
-            if (key == meta.ARTISTS or key == meta.FEATURING or key == meta.WITH) and isinstance(data.get(key), str):
-                data[key] = [Artist(artist) for artist in data[key]]
-            elif key == meta.VERSIONS:
-                # TODO: Check if artists are str.
-                data[key] = {k: [Artist(artist) for artist in v]for k, v in data[key].items() if v is not None}
+            if key == meta.ARTISTS and isinstance(value, list) and isinstance(self.__first(value), str):
+                data[key] = [Artist(artist) for artist in value]
+            else: data[key] = self.__first(value)
         return {k: v for k, v in data.items() if v != [] and v != "" and v is not None}
 
     def get_track(self) -> Track:
@@ -133,7 +136,7 @@ class MusicFile:
         })
 
     def __first(self, lst: list, default: any = None) -> any:
-        try: return lst[0]
+        try: return lst[0] if isinstance(lst, list) else default
         except (IndexError, TypeError): return default
 
     def __find_artists(self, data: dict, method: callable = Parser.parse_artists) -> list[Artist]:
@@ -194,9 +197,8 @@ class MusicFile:
 if __name__ == "__main__":
     for file in Path("/Users/ruud/Desktop/låter").iterdir():
         if file.suffix not in AUDIO_FORMATS: continue
-        if not 'Tamo Loco' in file.name: continue
+        #if not '4' in file.name: continue
         file = MusicFile(file)
         track = file.as_track()
         print(f"{track}")
-        print(track.get())
-        #exit(0)
+        #print(f"{track.get()}")

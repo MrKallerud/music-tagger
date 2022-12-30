@@ -78,20 +78,23 @@ class MetadataFields:
         fields = MetadataFields.__dict__
         fields = dict(filter(lambda item: item[0].isupper(), fields.items()))
         return list(fields.values())
-        
+
 
 class MetadataParser:
-    def __init__(self, string: str):
+    def __init__(self, string: str, as_strings: bool = True):
         if not isinstance(string, str): raise TypeError(f"MetadataParser can only parse from string, not {string.__class__.__name__}.")
         if string == "": self.metadata = {}; return
         self.metadata = {MetadataFields.ORIGINALFILENAME: string}
 
-        self.metadata[MetadataFields.DATE] = self.parse_date(self.parse_year(string)[1])
-        _,      self.metadata[MetadataFields.GENRE] = self.parse_genre(string)
-        string, self.metadata[MetadataFields.FEATURING] = self.parse_feature(string)
-        string, self.metadata[MetadataFields.WITH] = self.parse_with(string)
-        string, self.metadata[MetadataFields.VERSIONS] = self.parse_versions(string)
-        string, self.metadata[MetadataFields.ARTISTS] = self.parse_artists(string)
+        _, year = self.parse_year(string)
+        _, self.metadata[MetadataFields.GENRE] = self.parse_genre(string)
+        self.metadata[MetadataFields.DATE] = self.parse_date(year)
+
+        string, self.metadata[MetadataFields.EXTENDED] = self.parse_extended(string)
+        string, self.metadata[MetadataFields.FEATURING] = self.parse_feature(string, as_strings)
+        string, self.metadata[MetadataFields.WITH] = self.parse_with(string, as_strings)
+        string, self.metadata[MetadataFields.VERSIONS] = self.parse_versions(string, as_strings)
+        string, self.metadata[MetadataFields.ARTISTS] = self.parse_artists(string, as_strings)
         string, self.metadata[MetadataFields.NAME] = self.parse_title(string)
 
         self.metadata = {k: v for k, v in self.metadata.items() if v != [] and v is not None}
@@ -130,9 +133,15 @@ class MetadataParser:
 
     @staticmethod
     def parse_title(string: str) -> tuple[str, str | None]:
-        if not isinstance(string, str): return string, None
+        # Check that the argument is a not-empty string
+        if not isinstance(string, str) or string == '': return string, None
+
+        # If the string includes a dash, only use whats after the dash
+        # 'Artist - Title' -> 'Title'
+        # 'Artist - ' -> ''
         if Regexes.DASH_SPLITTER_REGEX.search(string):
-            string = Regexes.AFTER_DASH_REGEX.search(string).group(1)
+            string = Regexes.AFTER_DASH_REGEX.search(string).group(1).strip()
+            if string == '': return string, None
         title = Regexes.BEFORE_BRACK_DASH_REGEX.search(string).group(1)
         return string.replace(title, ""), title
 
@@ -140,7 +149,6 @@ class MetadataParser:
     def parse_genre(string: str) -> tuple[str, str | None]:
         genres = []
         for genre in Regexes.GENRE_REGEX.findall(string):
-            print(genre)
             genres.append(genre.title())
             string = string.replace(genre, "")
         return string, genres if len(genres) != 0 else None
@@ -156,7 +164,7 @@ class MetadataParser:
 
     @staticmethod
     def clean_string(string: str) -> str:
-        if not isinstance(string, str): return None
+        if not isinstance(string, str): return string
         string = string.replace("-–—", "-")
         for match in Regexes.BRACKET_REGEX.findall(string):
             if not Regexes.IGNORE_REGEX.search(match): continue
@@ -166,25 +174,44 @@ class MetadataParser:
         return string.strip(" -+.,&#")
 
     @staticmethod
-    def parse_artists(string: str) -> tuple[str, list[str]]:
+    def parse_artists(string: str, as_strings: bool = True) -> tuple[str, list[str]]:
+        from music_tagger.track import Artist
+
         if not isinstance(string, str): return string, []
         if not Regexes.DASH_SPLITTER_REGEX.search(string): return string, []
         split = Regexes.DASH_SPLITTER_REGEX.split(string)
         artists = MetadataParser.split_list(split.pop(0))
+        if not as_strings: artists = [Artist(artist) for artist in artists]
         return " ".join(split), artists
 
     @staticmethod
-    def parse_versions(string: str) -> tuple[str, dict[str, list[str]] | None]:
+    def parse_versions(string: str, as_strings: bool = True) -> tuple[str, dict[str, list[str]] | None]:
+        from music_tagger.track import Artist
+
         title = string
+        #if Regexes.DASH_SPLITTER_REGEX.search(string): string = Regexes.AFTER_DASH_REGEX.search(string).group(1)
         versions = {}
         for match in Regexes.REMIX_REGEX.finditer(string):
-            group = match.group(1)
-            if re.search(r"[()\[\]-]", group): continue
-            version = [str(word).capitalize() for word in Regexes.VERSION_REGEX.findall(group)]
-            split = re.sub(" ".join(version), "", group, flags = re.I)
-            unnessecary = ["Edit", "Version", "Mix"]
-            if len(version) > 1 and version[-1] in unnessecary: version.pop(-1)
-            versions[" ".join(version)] = MetadataParser.split_list(split.strip())
+            line = match.group(1)
+            if re.search(r"[()\[\]-]", line): continue
+            year = [str(y) for y in Regexes.YEAR_REGEX.findall(line)]
+            for y in year: line = re.sub(y, "", line, flags=re.I)
+
+            quote = [str(q) for q in Regexes.ANY_QUOTE_REGEX.findall(line)]
+            for q in quote: line = re.sub(q, "", line, flags=re.I)
+
+            version = [str(word).capitalize() for word in Regexes.VERSION_REGEX.findall(line)]
+            for v in version: line = re.sub(v, "", line, flags=re.I)
+            for unnessecary in ["Edit", "Version", "Mix"]:
+                if len(version) == 1: break
+                if unnessecary in version: version.remove(unnessecary)
+            
+            version = " ".join((year if len(year) > 0 else []) + (quote if len(quote) > 0 else []) + (version if len(version) > 0 else []))
+            artists = MetadataParser.split_list(MetadataParser.clean_string(line))
+
+            if as_strings: versions[version] = artists
+            else: versions[version] = [Artist(artist) for artist in artists]
+
             title = title.replace(match.group(0), "").strip()
 
         if versions.get("Mix") == []: del versions["Mix"]
@@ -192,20 +219,30 @@ class MetadataParser:
         return title, versions
 
     @staticmethod
-    def parse_feature(string: str) -> tuple[str, list[str]]:
+    def parse_feature(string: str, as_strings: bool = True) -> tuple[str, list[str]]:
+        from music_tagger.track import Artist
+
         if not isinstance(string, str): return string, []
         match = Regexes.FEAT_REGEX.search(string)
         if not match: return string, []
         string = string.replace(match.group(0).strip(r"-()[]* "), "")
-        return string, MetadataParser.split_list(match.group(1))
+
+        artists = MetadataParser.split_list(match.group(1))
+        if not as_strings: artists = [Artist(artist) for artist in artists]
+        return string, artists
 
     @staticmethod
-    def parse_with(string: str) -> tuple[str, list[str]]:
+    def parse_with(string: str, as_strings: bool = True) -> tuple[str, list[str]]:
+        from music_tagger.track import Artist
+
         if not isinstance(string, str): return string, []
         match = Regexes.WITH_REGEX.search(string)
         if not match: return string, []
         string = string.replace(match.group(0).strip(r"-()[]* "), "")
-        return string, MetadataParser.split_list(match.group(1))
+
+        artists = MetadataParser.split_list(match.group(1))
+        if not as_strings: artists = [Artist(artist) for artist in artists]
+        return string, artists
 
     @staticmethod
     def parse_extended(string: str) -> tuple[str, str | None]:
@@ -242,10 +279,10 @@ class MetadataParser:
         return list(filter(lambda artist: artist != "", l))
 
     @staticmethod
-    def pretty_list(list: list[str]) -> str:
+    def pretty_list(list: list) -> str:
         ret = ""
         for i, string in enumerate(list):
-            ret += string
+            ret += str(string)
             if i < len(list) - 2:
                 ret += ", "
             elif i < len(list) - 1:
@@ -308,6 +345,6 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, no_overwrite: bool 
     tags.save()
 
 if __name__ == "__main__":
-    parser = MetadataParser("Yolo (Mick 2k22 Deep House Remix)")
+    parser = MetadataParser("Sak Noel - Loca People (DON PAOLO Bootleg EDIT)", as_strings=False)
     print(parser)
     print(parser.as_track().get())

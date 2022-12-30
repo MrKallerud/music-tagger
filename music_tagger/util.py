@@ -139,11 +139,15 @@ YEAR_REGEX = re.compile(r"\b(2[01k]\d{2})\b", re.I)
 FEAT_REGEX = re.compile(r"(?:^|\(|\[)?\s*(?:" + r"|".join(__FEATURING) + r")(?:\.\s*|\s+)(.+?)\s*(?:\(|\)|\[|\]|\s-|$)", re.I)
 WITH_REGEX = re.compile(r"(?:^|\(|\[)?\s*with(?:\.\s*|\s+)(.+?)\s*(?:\(|\)|\[|\]|\s-|$)", re.I)
 
+# QUOTE_REGEX = re.compile(r"'(.*?)'")
+# DOUBLE_QUOTE_REGEX = re.compile(r'"(.*?)"')
+ANY_QUOTE_REGEX = re.compile(r"['\"].*?['\"]")
+
 REMIX_REGEX = re.compile(r"(?:\(|\[|-\s*)(.*?(?:" + r"|".join(__VERSIONS) + r")\s*)(?:\)|\]|\s+-|$)", re.I)
 
 MULTIPLE_SPACES_REGEX = re.compile(r"\s{2,}")
 EMPTY_BRACKETS_REGEX = re.compile(r"[*(\[)]\s*[\])*]")
-AFTER_DASH_REGEX = re.compile(r"[-–—]\s+(.+)")
+AFTER_DASH_REGEX = re.compile(r"[-–—]\s*(.+)")
 BEFORE_BRACK_DASH_REGEX = re.compile(r"^(.+?)\s*(?:\(|\[|\s[-–—]|$)")
 
 EXTENDED_REGEX = __list_to_regex(__EXTENDED)
