@@ -4,8 +4,8 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger import util
-from music_tagger.metadata import MetadataParser as Parser
-from music_tagger.metadata import MetadataFields as meta
+from music_tagger.metadata_parser import MetadataParser as Parser
+from music_tagger.metadata_fields import MetadataFields as Fields
 from music_tagger.track import Track, Artist, Album, Artwork
 
 class SpotifyAPI:
@@ -58,45 +58,45 @@ class SpotifyAPI:
         title, details = Parser.parse_dash_version(title)
 
         return Track({
-            meta.ALBUM: SpotifyAPI.get_album(data.get("album")),
-            meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
-            meta.DURATION: data.get("duration_ms"),
-            meta.EXPLICIT: data.get("explicit"),
-            meta.EXTENDED: extended,
-            meta.ORIGINALFILENAME: original_title,
-            meta.FEATURING: features,
-            meta.ID: data.get("id"),
-            meta.ISRC: data.get("external_ids").get("isrc"),
-            meta.NAME: title,
-            meta.PLATFORM: SpotifyAPI.NAME,
-            meta.POPULARITY: data.get("popularity"),
-            meta.VERSIONS: versions,
-            meta.TRACK_NUMBER: data.get("track_number"),
-            meta.URL: SpotifyAPI.WEBURL_BASE + "/track/" + data.get("id"),
-            meta.DETAILS: details,
-            meta.WITH: withs,
+            Fields.ALBUM: SpotifyAPI.get_album(data.get("album")),
+            Fields.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
+            Fields.DURATION: data.get("duration_ms"),
+            Fields.EXPLICIT: data.get("explicit"),
+            Fields.EXTENDED: extended,
+            Fields.ORIGINALFILENAME: original_title,
+            Fields.FEATURING: features,
+            Fields.ID: data.get("id"),
+            Fields.ISRC: data.get("external_ids").get("isrc"),
+            Fields.NAME: title,
+            Fields.PLATFORM: SpotifyAPI.NAME,
+            Fields.POPULARITY: data.get("popularity"),
+            Fields.VERSIONS: versions,
+            Fields.TRACK_NUMBER: data.get("track_number"),
+            Fields.URL: SpotifyAPI.WEBURL_BASE + "/track/" + data.get("id"),
+            Fields.DETAILS: details,
+            Fields.WITH: withs,
         })
 
     @staticmethod
     def get_artist(data: dict[str, any]) -> Artist:
         return Artist({
-            meta.GENRE: data.get("genres"),
-            meta.ID: data.get("id"),
-            meta.NAME: data.get("name"),
-            meta.URL: SpotifyAPI.WEBURL_BASE + "/artist/" + data.get("id"),
+            Fields.GENRE: data.get("genres"),
+            Fields.ID: data.get("id"),
+            Fields.NAME: data.get("name"),
+            Fields.URL: SpotifyAPI.WEBURL_BASE + "/artist/" + data.get("id"),
         })
 
     @staticmethod
     def get_album(data: dict[str, any]) -> Album:
         return Album({
-            meta.ALBUM_TYPE: data.get("album_type"),
-            meta.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
-            meta.DATE: Parser.parse_date(data.get("release_date")),
-            meta.ID: data.get("id"),
-            meta.IMAGE: Artwork(data.get("images")[0].get("url")),
-            meta.NAME: data.get("name"),
-            meta.TRACK_COUNT: data.get("total_tracks"),
-            meta.URL: SpotifyAPI.WEBURL_BASE + "/album/" + data.get("id"),
+            Fields.ALBUM_TYPE: data.get("album_type"),
+            Fields.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
+            Fields.DATE: Parser.parse_date(data.get("release_date")),
+            Fields.ID: data.get("id"),
+            Fields.IMAGE: Artwork(data.get("images")[0].get("url")),
+            Fields.NAME: data.get("name"),
+            Fields.TRACK_COUNT: data.get("total_tracks"),
+            Fields.URL: SpotifyAPI.WEBURL_BASE + "/album/" + data.get("id"),
         })
 
     @staticmethod
@@ -366,4 +366,4 @@ if __name__ == "__main__":
     # Quick tests
     print(SpotifyAPI.get_access_token())
     for result in SpotifyAPI.search("you", limit=50):
-        print(result.get(meta.ALBUM).get(meta.DATE))
+        print(result.get(Fields.ALBUM).get(Fields.DATE))

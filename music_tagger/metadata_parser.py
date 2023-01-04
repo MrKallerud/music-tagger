@@ -12,90 +12,25 @@ from pathlib import Path
 from datetime import datetime
 
 from music_tagger import util as Regexes
-
-class MetadataFields:
-    ALBUM = "album"
-    ALBUM_ARTIST = "albumartist"
-    ALBUM_TYPE = "albumtype"
-    ARTISTS = "artist"
-    COMPOSERS = "composer"
-    DATE = "date"
-    DESCRIPTION = "comment"
-    DETAILS = "version"
-    DOWNLOAD = "buy_url"
-    DURATION = "length"
-    EXPLICIT = "itunesadvisory"
-    EXTENDED = "extended"
-    FEATURING = "featuring"
-    GENRE = "genre"
-    ID = "id"
-    IMAGE = "artwork"
-    ISRC = "isrc"
-    KEY = "initialkey"
-    LABEL = "organization"
-    NAME = "title"
-    ORIGINALFILENAME = "originalfilename"
-    PLATFORM = "platform"
-    POPULARITY = "popularimeter"
-    TAGS = "tags"
-    TEMPO = "bpm"
-    TEXT = "usertext"
-    TRACK_COUNT = "trackcount"
-    TRACK_NUMBER = "tracknumber"
-    URL = "website"
-    VERSIONS = "remixers"
-    WITH = "with"
-
-    # "albumartistsort"
-    # "album"
-    # "albumsort"
-    # "arranger"
-    # "artistsort"
-    # "asin"
-    # "author"
-    # "barcode"
-    # "catalognumber"
-    # "compilation"
-    # "composersort"
-    # "conductor"
-    # "copyright"
-    # "discnumber"
-    # "discsubtitle"
-    # "encodedby"
-    # "language"
-    # "lyricist"
-    # "media"
-    # "mood"
-    # "originaldate"
-    # "performer"
-    # "releasecountry"
-    # "replaygain_*_gain"
-    # "replaygain_*_peak"
-    # "titlesort"
-
-    @staticmethod
-    def valid_fields() -> list[str]:
-        fields = MetadataFields.__dict__
-        fields = dict(filter(lambda item: item[0].isupper(), fields.items()))
-        return list(fields.values())
+from music_tagger.metadata_fields import MetadataFields as fields
 
 
 class MetadataParser:
-    def __init__(self, string: str, as_strings: bool = True):
+    def __init__(self, string: str = None, as_strings: bool = True):
+        if string == "" or string is None: self.metadata = {}; return
         if not isinstance(string, str): raise TypeError(f"MetadataParser can only parse from string, not {string.__class__.__name__}.")
-        if string == "": self.metadata = {}; return
-        self.metadata = {MetadataFields.ORIGINALFILENAME: string}
+        self.metadata = {fields.ORIGINALFILENAME: string}
 
         _, year = self.parse_year(string)
-        _, self.metadata[MetadataFields.GENRE] = self.parse_genre(string)
-        self.metadata[MetadataFields.DATE] = self.parse_date(year)
+        _, self.metadata[fields.GENRE] = self.parse_genre(string)
+        self.metadata[fields.DATE] = self.parse_date(year)
 
-        string, self.metadata[MetadataFields.EXTENDED] = self.parse_extended(string)
-        string, self.metadata[MetadataFields.FEATURING] = self.parse_feature(string, as_strings)
-        string, self.metadata[MetadataFields.WITH] = self.parse_with(string, as_strings)
-        string, self.metadata[MetadataFields.VERSIONS] = self.parse_versions(string, as_strings)
-        string, self.metadata[MetadataFields.ARTISTS] = self.parse_artists(string, as_strings)
-        string, self.metadata[MetadataFields.NAME] = self.parse_title(string)
+        string, self.metadata[fields.EXTENDED] = self.parse_extended(string)
+        string, self.metadata[fields.FEATURING] = self.parse_feature(string, as_strings)
+        string, self.metadata[fields.WITH] = self.parse_with(string, as_strings)
+        string, self.metadata[fields.VERSIONS] = self.parse_versions(string, as_strings)
+        string, self.metadata[fields.ARTISTS] = self.parse_artists(string, as_strings)
+        string, self.metadata[fields.NAME] = self.parse_title(string)
 
         self.metadata = {k: v for k, v in self.metadata.items() if v != [] and v is not None}
 
@@ -104,17 +39,27 @@ class MetadataParser:
         return Track(self.metadata)
 
     @staticmethod
-    def parse_date(string: str) -> datetime | None:
-        if not string: return None
+    def parse_date(string: str, format: str = None) -> datetime | None:
+        if not isinstance(string, str): return None
+        if format is not None: return datetime.strptime(string, format)
+        
         sep = "-"
         if " " in string: sep = " "
         if "." in string: sep = "."
+
         format = r"%Y-%m-%dT%H:%M:%SZ"
         if re.fullmatch(r"\d{4}", string): format = r"%Y"
         if re.fullmatch(r"\d{4}\W\d{2}", string): format = f"%Y{sep}%m"
         if re.fullmatch(r"\d{4}\W\d{2}\W\d{2}", string): format = f"%Y{sep}%m{sep}%d"
 
         return datetime.strptime(string, format)
+
+    @staticmethod
+    def is_date(string: str) -> bool:
+        return re.fullmatch(r"\d{4}", string) is not None or \
+            re.fullmatch(r"\d{4}\W\d{2}", string) is not None or \
+            re.fullmatch(r"\d{4}\W\d{2}\W\d{2}", string) is not None or \
+            re.fullmatch(r"\d{4}\W\d{2}\W\d{2}T\d{2}\W\d{2}\W\d{2}Z?", string) is not None
 
     @staticmethod
     def parse_filetypes(string: str) -> tuple[str, str | None]:
@@ -279,7 +224,7 @@ class MetadataParser:
         return list(filter(lambda artist: artist != "", l))
 
     @staticmethod
-    def pretty_list(list: list) -> str:
+    def format_list(list: list) -> str:
         ret = ""
         for i, string in enumerate(list):
             ret += str(string)

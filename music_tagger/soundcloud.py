@@ -12,9 +12,9 @@ from bs4 import BeautifulSoup
 
 from music_tagger import colors as Color
 from music_tagger.util import FOLDER
-from music_tagger.metadata import MetadataParser as Parser
+from music_tagger.metadata_parser import MetadataParser as Parser
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
-from music_tagger.metadata import MetadataFields as meta
+from music_tagger.metadata_fields import MetadataFields as Fields
 from music_tagger.track import Track, Artist, Album, Artwork
 
 ssl_verify=True
@@ -133,35 +133,35 @@ class SoundCloudAPI:
             explicit = pub_met.get("explicit")
 
         return Track({
-            meta.ALBUM: SoundCloudAPI.get_album(data),
-            meta.ARTISTS: [Artist(artist) for artist in artists] if artists else [user],
-            meta.DESCRIPTION: data.get("description"),
-            meta.DOWNLOAD: data.get("purchase_url"),
-            meta.DURATION: data.get("duration"),
-            meta.EXPLICIT: explicit,
-            meta.EXTENDED: extended,
-            meta.ORIGINALFILENAME: original_name,
-            meta.FEATURING: features,
-            meta.GENRE: data.get("genre"),
-            meta.ID: data.get("id"),
-            meta.ISRC: isrc,
-            meta.LABEL: data.get("label_name"),
-            meta.NAME: name,
-            meta.PLATFORM: SoundCloudAPI.NAME,
-            meta.TAGS: set([tag.strip() for tag in re.split("\s*\\\"\s*(?:\\\")?", data.get("tag_list")) if tag != '']),
-            meta.URL: data.get("permalink_url"),
-            meta.VERSIONS: versions,
-            meta.WITH: withs,
+            Fields.ALBUM: SoundCloudAPI.get_album(data),
+            Fields.ARTISTS: [Artist(artist) for artist in artists] if artists else [user],
+            Fields.DESCRIPTION: data.get("description"),
+            Fields.DOWNLOAD: data.get("purchase_url"),
+            Fields.DURATION: data.get("duration"),
+            Fields.EXPLICIT: explicit,
+            Fields.EXTENDED: extended,
+            Fields.ORIGINALFILENAME: original_name,
+            Fields.FEATURING: features,
+            Fields.GENRE: data.get("genre"),
+            Fields.ID: data.get("id"),
+            Fields.ISRC: isrc,
+            Fields.LABEL: data.get("label_name"),
+            Fields.NAME: name,
+            Fields.PLATFORM: SoundCloudAPI.NAME,
+            Fields.TAGS: set([tag.strip() for tag in re.split("\s*\\\"\s*(?:\\\")?", data.get("tag_list")) if tag != '']),
+            Fields.URL: data.get("permalink_url"),
+            Fields.VERSIONS: versions,
+            Fields.WITH: withs,
         })
 
     @staticmethod
     def get_artist(data: dict[str, any]) -> Artist:
         return Artist({
-            meta.NAME: data.get("full_name") if data.get("full_name") else data.get("username"),
-            meta.DESCRIPTION: data.get("description"),
-            meta.IMAGE: Artwork(data.get("avatar_url").replace("large", "t500x500")),
-            meta.ID: data.get("id"),
-            meta.URL: data.get("permalink_url"),
+            Fields.NAME: data.get("full_name") if data.get("full_name") else data.get("username"),
+            Fields.DESCRIPTION: data.get("description"),
+            Fields.IMAGE: Artwork(data.get("avatar_url").replace("large", "t500x500")),
+            Fields.ID: data.get("id"),
+            Fields.URL: data.get("permalink_url"),
         })
 
     @staticmethod
@@ -174,10 +174,10 @@ class SoundCloudAPI:
         date = datetime.strptime(date, r"%Y-%m-%dT%H:%M:%SZ")
 
         return Album({
-            meta.NAME: album_name,
-            meta.IMAGE: Artwork(data.get("artwork_url").replace("large", "t500x500")),
-            meta.DATE: date,
-            meta.ALBUM_TYPE: Parser.parse_album_type(song_name, album_name)
+            Fields.NAME: album_name,
+            Fields.IMAGE: Artwork(data.get("artwork_url").replace("large", "t500x500")),
+            Fields.DATE: date,
+            Fields.ALBUM_TYPE: Parser.parse_album_type(song_name, album_name)
         })
 
 class SoundCloudTrack:

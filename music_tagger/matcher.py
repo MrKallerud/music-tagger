@@ -7,7 +7,7 @@ from music_tagger.music_file import MusicFile
 from music_tagger.shazam_track import ShazamTrack
 from music_tagger.soundcloud import SoundCloudAPI, SoundCloudTrack
 from music_tagger.spotify import SpotifyAPI, SpotifyTrack
-from music_tagger.metadata import MetadataParser
+from music_tagger.metadata_parser import MetadataParser
 
 class MatchError(Exception):
     def __init__(self, reason: str) -> None:

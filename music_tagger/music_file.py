@@ -3,11 +3,11 @@ from audio_metadata import ID3v2UserText, ID3v2Comment
 from mutagen.id3 import ID3NoHeaderError
 from pathlib import Path
 
-from music_tagger.metadata import embed_artwork, embed_metadata
+from music_tagger.metadata_parser import embed_artwork, embed_metadata
 from collections.abc import Sequence
 from music_tagger.track import Track, Artist, Album, Artwork
-from music_tagger.metadata import MetadataParser as Parser
-from music_tagger.metadata import MetadataFields as meta
+from music_tagger.metadata_parser import MetadataParser as Parser
+from music_tagger.metadata_fields import MetadataFields as Fields
 from music_tagger.util import AUDIO_FORMATS
 
 class MusicFile:
@@ -18,11 +18,16 @@ class MusicFile:
             raise FileNotFoundError()
 
         metadata = audio_metadata.load(self.path)
-        try: metadata[meta.IMAGE] = mutagen.File(self.path).get("APIC:")
+        try: metadata[Fields.IMAGE] = mutagen.File(self.path).get("APIC:")
         except ID3NoHeaderError: print("No Artwork")
         
-        self.__stream = dict(metadata.get("streaminfo"))
-        self.__metadata = dict(metadata.get("tags"))
+        self.__metadata = self.__clean_metadata(dict(metadata.get("tags")))
+        stream = dict(metadata.get("streaminfo"))
+        self.size = stream.get("_size")                 # bytes
+        self.duration = stream.get("duration") * 1000   # ms
+        self.bitrate = stream.get("bitrate") / 1000     # kbps
+        self.sample_rate = stream.get("sample_rate")    # hz
+        self.channels = stream.get("channels")
 
     def get_ext(self) -> str:
         return self.path.suffix
@@ -30,15 +35,40 @@ class MusicFile:
     def get_filename(self) -> str:
         return self.path.with_suffix('').name
 
-    def get_metadata(self, key: str = None) -> str | None:
+    def get_metadata(self, key: str = None, default = None):
         if not key: return self.__metadata
-        value = self.__metadata.get(key)
-        if isinstance(value, Sequence) and len(value) != 0:
-            return value[0]
-        return value
+        return  self.__metadata.get(key, default)
 
-    def get_duration(self) -> float:
-        return self.__stream.get("duration") * 1000
+    def __clean_metadata(self, data: dict[str, any]) -> dict[str, any]:
+        for key, value in data.items():
+            # Convert lists
+            if not isinstance(value, str) and isinstance(value, Sequence) and len(value) == 1:
+                value = self.__first(value, value)
+                data[key] = value
+            if isinstance(value, Sequence) and len(value) == 0:
+                value = None
+                data[key] = value
+                continue
+            # Convert comments
+            if isinstance(value, ID3v2Comment):
+                data[Fields.DESCRIPTION] = value.text
+                continue
+            # Convert User fields
+            if isinstance(value, ID3v2UserText):
+                data[key] = None
+                data[value.description] = value.text
+                continue
+            # Convert dates
+            if isinstance(value, str) and Parser.is_date(value):
+                value = Parser.parse_date(value)
+                data[key] = value
+                continue
+            # Convert numbers
+            if isinstance(value, str) and value.isdigit():
+                value = int(value)
+                data[key] = value
+
+        return {k: v for k, v in data.items() if v is not None}
     
     def read(self):
         return self.path.read_bytes()
@@ -55,106 +85,49 @@ class MusicFile:
         self.path = self.path.rename(os.path.join(self.path.parent, filename + self.get_ext()))
 
     def as_track(self) -> Track:
-        parsed_filename = Parser(self.get_filename(), as_strings=False)
-        try: parsed_title = Parser(self.__first(self.__metadata.get(meta.NAME), ""), as_strings=False)
-        except TypeError: parsed_title = Parser("")
-        try: parsed_artists = Parser(self.__first(self.__metadata.get(meta.ARTISTS), "") + " - " if self.__metadata.get(meta.ARTISTS) else [], as_strings=False)
-        except TypeError: parsed_artists = Parser("")
+        metadata: dict[str, any] = self.get_metadata()
 
-        metadata = self.__metadata.copy()
+        parsed_filename = Parser(self.get_filename(), as_strings=False)
+        try: parsed_title = Parser(metadata.get(Fields.NAME), as_strings=False)
+        except TypeError: parsed_title = Parser()
+        try: parsed_artists = Parser(metadata.get(Fields.ARTISTS) + " - " if metadata.get(Fields.ARTISTS) else [], as_strings=False)
+        except TypeError: parsed_artists = Parser()
+
+        metadata, metadata[Fields.ALBUM] = self.__get_album(metadata.copy())
+
         for parser in [parsed_filename, parsed_title, parsed_artists]:
             for key, value in parser.metadata.items():
                 if value is None: continue
                 if isinstance(value, Sequence) and len(value) == 0: continue
-                existing = metadata.get(key)
-                if isinstance(existing, (list, dict)) and existing.__class__ == value.__class__:
-                    for element in value:
-                        if element in existing: continue
-                        metadata[key] = existing.append(element)
-                else: metadata[key] = value
+                # TODO: Merge lists
+                #existing = metadata.get(key)
+                # if isinstance(existing, (list, dict)) and existing.__class__ == value.__class__:
+                #     for element in value:
+                #         if metadata[key] is None: metadata[key] = []
+                #         if element in existing: continue
+                #         metadata[key] = metadata[key].append(element)
 
-        metadata[meta.ORIGINALFILENAME] = self.get_filename()
+                metadata[key] = value
 
-        return Track(self.__filter_dict(metadata))
+        metadata[Fields.ORIGINALFILENAME] = self.get_filename()
 
-    def __filter_dict(self, data: dict) -> dict[str, any]:
-        for key, value in data.items():
-            if not isinstance(value, Sequence) or len(value) != 1 or not isinstance(value[0], str): continue
-            if key == meta.ARTISTS and isinstance(value, list) and isinstance(self.__first(value), str):
-                data[key] = [Artist(artist) for artist in value]
-            else: data[key] = self.__first(value)
-        return {k: v for k, v in data.items() if v != [] and v != "" and v is not None}
+        return Track(metadata)
 
-    def get_track(self) -> Track:
-        original_name = self.__first(self.__metadata.get(meta.NAME), self.get_filename())
-        name = Parser.clean_string(original_name)
-        name, _ = Parser.parse_filetypes(name)
-        name, extended = Parser.parse_extended(name)
-        name, versions = Parser.parse_versions(name)
+    def __get_album(self, data: dict[str, any]) -> tuple[dict, Album]:
+        name = self.__first(data.pop(Fields.ALBUM))
+        artists = Parser.split_list(",".join(data.pop(Fields.ALBUM_ARTIST, [])))
+        date = Parser.parse_date(self.__first(data.pop(Fields.DATE)))
 
-        data = self.__metadata.copy()
-        data[meta.ORIGINALFILENAME] = self.get_filename()
-        
-        data[meta.FEATURING] = self.__find_artists(data, Parser.parse_feature)
-        data[meta.ARTISTS] = [Parser.parse_feature(self.__first(data.get(meta.ARTISTS)))[0]]
-
-        data[meta.WITH] = self.__find_artists(data, Parser.parse_with)
-        data[meta.ARTISTS] = [Parser.parse_with(self.__first(data.get(meta.ARTISTS)))[0]]
-
-        data[meta.ARTISTS] = self.__find_artists(data)
-        data[meta.EXTENDED] = extended
-        data[meta.NAME] = Parser.parse_title(name)[1]
-        data[meta.VERSIONS] = versions
-        if data.get(meta.ALBUM): data[meta.ALBUM] = self.__get_album(data)
-        if data.get("key"): data[meta.KEY] = data.pop("key")
-        if data.get(meta.COMPOSERS): data[meta.COMPOSERS] = Parser.split_list(",".join(data.get(meta.COMPOSERS)))
-        if data.get(meta.DESCRIPTION): data[meta.DESCRIPTION] = self.__first(data.pop(meta.DESCRIPTION)).text
-
-        # Handle User Text
-        if data.get(meta.TEXT):
-            for usertext in data.pop(meta.TEXT):
-                data[usertext.description] = usertext.text
-
-        # Convert lists with one item to just the item
-        for key, value in data.items():
-            if isinstance(value, Sequence) and len(value) == 0: data[key] = None
-            if not isinstance(value, Sequence) or len(value) != 1 or not isinstance(value[0], str): continue
-            data[key] = self.__first(value)
-
-        return Track(data)
-
-    def __get_album(self, data: dict[str, any]) -> Album:
-        name = self.__first(data.pop(meta.ALBUM))
-        artists = Parser.split_list(",".join(data.pop(meta.ALBUM_ARTIST, [])))
-        date = Parser.parse_date(self.__first(data.pop(meta.DATE)))
-
-        return Album({
-            meta.NAME: name,
-            meta.ARTISTS: artists,
-            meta.IMAGE: Artwork(data.pop(meta.IMAGE, None)),
-            meta.DATE: date,
+        return data, Album({
+            Fields.NAME: name,
+            Fields.ARTISTS: artists,
+            Fields.IMAGE: Artwork(data.pop(Fields.IMAGE, None)),
+            Fields.DATE: date
         })
 
     def __first(self, lst: list, default: any = None) -> any:
-        try: return lst[0] if isinstance(lst, list) else default
-        except (IndexError, TypeError): return default
-
-    def __find_artists(self, data: dict, method: callable = Parser.parse_artists) -> list[Artist]:
-        _, artists = method(data.get(meta.ORIGINALFILENAME))
-
-        title = self.__first(data.get(meta.NAME))
-        if title:
-            _, from_title = method(title)
-            artists.extend(from_title)
-
-        artist = self.__first(data.get(meta.ARTISTS))
-        if artist:
-            artist += " - "
-            _, from_artist = method(artist)
-            artists.extend(from_artist)
-
-        artists = [Artist(artist) for artist in artists]
-        return list(dict.fromkeys(artists))
+        try: return lst[0] if isinstance(lst, list) else default if default else lst
+        except (IndexError, TypeError): return default if default else lst
 
     def write_metadata(self, no_overwrite: bool = False):
         from music_tagger.soundcloud import SoundCloudTrack
@@ -197,7 +170,7 @@ class MusicFile:
 if __name__ == "__main__":
     for file in Path("/Users/ruud/Desktop/låter").iterdir():
         if file.suffix not in AUDIO_FORMATS: continue
-        #if not '4' in file.name: continue
+        if not '4' in file.name: continue
         file = MusicFile(file)
         track = file.as_track()
         print(f"{track}")

@@ -2,8 +2,8 @@ from mutagen.id3 import APIC, PictureType
 from PIL import Image
 from PIL.Image import Resampling
 
-from music_tagger.metadata import MetadataFields as meta
-from music_tagger.metadata import MetadataParser as Parser
+from music_tagger.metadata_fields import MetadataFields as Fields
+from music_tagger.metadata_parser import MetadataParser as Parser
 
 
 class Track:
@@ -16,11 +16,11 @@ class Track:
         return item if item else default
 
     def get_name(self) -> str:
-        name = self.get(meta.NAME)
-        extended = self.get(meta.EXTENDED)
+        name = self.get(Fields.NAME)
+        extended = self.get(Fields.EXTENDED)
         brackets = "()"
 
-        for detail in self.get(meta.DETAILS, []):
+        for detail in self.get(Fields.DETAILS, []):
             if extended and extended not in detail and extended not in name:
                 split = detail.split()
                 split.insert(-1, extended)
@@ -28,8 +28,8 @@ class Track:
             name += " " + brackets[0] + detail + brackets[1]
             brackets = "[]"
 
-        for version, artists in self.get(meta.VERSIONS, {}).items():
-            artists = Parser.pretty_list(artists)
+        for version, artists in self.get(Fields.VERSIONS, {}).items():
+            artists = Parser.format_list(artists)
             if artists: artists += " "
             if extended and extended not in version and extended not in name:
                 name += f" {brackets[0]}{artists}{extended} {version}{brackets[1]}"
@@ -45,26 +45,28 @@ class Track:
     def get_artists(self) -> str:
         all_artists = []
 
-        all_artists.extend(self.get(meta.ARTISTS, []))
-        all_artists.extend(self.get(meta.WITH, []))
-        all_artists.extend(self.get(meta.FEATURING, []))
-        for _, artists in self.get(meta.VERSIONS, {}).items():
+        all_artists.extend(self.get(Fields.ARTISTS, []))
+        all_artists.extend(self.get(Fields.WITH, []))
+        all_artists.extend(self.get(Fields.FEATURING, []))
+        for _, artists in self.get(Fields.VERSIONS, {}).items():
             all_artists.extend(artists)
 
         all_artists = [str(artist) for artist in all_artists]
         all_artists = list(dict.fromkeys(all_artists))
 
-        return Parser.pretty_list(all_artists)
+        return Parser.format_list(all_artists)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__) and (\
-            (self.get(meta.ISRC) and self.get(meta.ISRC) == other.get(meta.ISRC)) or \
-            (self.get(meta.ID) and self.get(meta.ID) == other.get(meta.ID)) or \
-            (str(self) == str(other)))
+        return not (not isinstance(other, self.__class__) or \
+            self.get(Fields.ISRC) != other.get(Fields.ISRC) or \
+            self.get(Fields.ID) != other.get(Fields.ID) or \
+            self.get(Fields.NAME) != other.get(Fields.NAME) or \
+            self.get(Fields.ARTISTS) != other.get(Fields.ARTISTS) or \
+            self.get(Fields.VERSIONS) != other.get(Fields.VERSIONS))
 
     def __hash__(self) -> int:
-        if self.get(meta.ISRC): return hash(self.get(meta.ISRC))
-        if self.get(meta.ID): return hash(self.get(meta.ID))
+        if self.get(Fields.ISRC): return hash(self.get(Fields.ISRC))
+        if self.get(Fields.ID): return hash(self.get(Fields.ID))
         return hash(str(self))
 
     def __repr__(self) -> str:
@@ -75,7 +77,7 @@ class Track:
 class Artist:
     def __init__(self, data: dict[str, any] | str):
         if isinstance(data, str):
-            data = {meta.NAME: data}
+            data = {Fields.NAME: data}
         self.__metadata = {k: v for k, v in data.items() if v is not None}
 
     def get(self, key: str = None, default = None):
@@ -84,7 +86,7 @@ class Artist:
         return item if item else default
 
     def get_name(self) -> str:
-        return self.get(meta.NAME)
+        return self.get(Fields.NAME)
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
@@ -98,7 +100,7 @@ class Artist:
 class Album:
     def __init__(self, data: dict[str, any] | str):
         if isinstance(data, str):
-            data = {meta.NAME: data}
+            data = {Fields.NAME: data}
         self.__metadata = {k: v for k, v in data.items() if v is not None}
 
     def get(self, key: str = None, default = None):
@@ -107,7 +109,7 @@ class Album:
         return item if item else default
 
     def get_name(self) -> str:
-        return self.get(meta.NAME)
+        return self.get(Fields.NAME)
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
@@ -150,3 +152,8 @@ class Artwork:
         r.raise_for_status()
         return Image.open(io.BytesIO(r.content))
         
+class Key:
+    def __init__(self, key: str) -> None:
+        # TODO: Convert between camelot and musical key
+        self.musical = key
+        #self.camelot = key
