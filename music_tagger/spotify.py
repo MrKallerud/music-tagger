@@ -365,5 +365,6 @@ class SpotifyAudioFeatures:
 if __name__ == "__main__":
     # Quick tests
     print(SpotifyAPI.get_access_token())
-    for result in SpotifyAPI.search("you", limit=50):
-        print(result.get(Fields.ALBUM).get(Fields.DATE))
+    print()
+    for result in SpotifyAPI.search("martin garrix loop", limit=50):
+        print(result)

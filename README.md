@@ -24,6 +24,7 @@ An automatic tool for tagging your music library with metadata from online music
 - [ ] Make it easier to import this package in other Python projects.
 - [ ] Improve matching by getting metadata from original track if remix metadata couldn't be found.
 - [ ] Implement metadata fetching from MusicBrainz.
+- [ ] Implement metadata fetching from Beatport.
 - [ ] Implement lyric fetching from Genius.
 - [ ] Improve performance
 - [ ] Option to disable Shazam (It's so slooow)

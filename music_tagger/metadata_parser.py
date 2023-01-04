@@ -16,6 +16,48 @@ from music_tagger.metadata_fields import MetadataFields as fields
 
 
 class MetadataParser:
+    _PITCHES = [
+        "C",  # 0
+        "C#", # 1
+        "D",  # 2
+        "D#", # 3
+        "E",  # 4
+        "F",  # 5
+        "F#", # 6
+        "G",  # 7
+        "G#", # 8
+        "A",  # 9
+        "A#", # 10
+        "B",  # 11
+    ]
+
+    _CAMELOT = {
+        "G#min": "1A",
+        "D#min": "2A",
+        "A#min": "3A",
+        "Fmin":  "4A",
+        "Cmin":  "5A",
+        "Gmin":  "6A",
+        "Dmin":  "7A",
+        "Amin":  "8A",
+        "Emin":  "9A",
+        "Bmin":  "10A",
+        "F#min": "11A",
+        "C#min": "12A",
+        "Bmaj":  "1B",
+        "F#maj": "2B",
+        "C#maj": "3B",
+        "G#maj": "4B",
+        "D#maj": "5B",
+        "A#maj": "6B",
+        "Fmaj":  "7B",
+        "Cmaj":  "8B",
+        "Gmaj":  "9B",
+        "Dmaj":  "10B",
+        "Amaj":  "11B",
+        "Emaj":  "12B",
+    }
+
     def __init__(self, string: str = None, as_strings: bool = True):
         if string == "" or string is None: self.metadata = {}; return
         if not isinstance(string, str): raise TypeError(f"MetadataParser can only parse from string, not {string.__class__.__name__}.")
@@ -216,6 +258,43 @@ class MetadataParser:
         title = parts.pop(0)
 
         return title, parts
+
+    @staticmethod
+    def parse_key(string: str, as_string: bool = True) -> tuple[int, bool] | None:
+        from music_tagger.track import Scale
+        if not isinstance(string, str): return None, None
+        string = MetadataParser.clean_string(string)
+
+        match = Regexes.KEY_REGEX.fullmatch(string)
+        if match:
+            pitch, is_major = MetadataParser.__parse_musical_key(match.group(0))
+        else:
+            match = Regexes.CAMELOT_KEY_REGEX.fullmatch(string)
+            if match:
+                pitch, is_major = MetadataParser.__parse_camelot_key(match.group(0))
+
+        if match is None: return None, None
+        if as_string: return pitch, is_major
+        return Scale(pitch, is_major)
+
+    @staticmethod
+    def __parse_musical_key(string: str) -> tuple[str, bool]:
+        for i, note in enumerate(MetadataParser._PITCHES):
+            if note == string[0].upper():
+                pitch = i
+                if '#' in string or '♯' in string: pitch += 1
+                elif 'b' in string or '♭' in string: pitch -= 1
+                pitch = pitch % 12
+                if re.search(r"(m|min|minor)\b", string, re.I):
+                    is_major = False
+                else: is_major = True
+                return pitch, is_major
+
+    @staticmethod
+    def __parse_camelot_key(string: str) -> tuple[str, bool] | None:
+        for key, value in MetadataParser._CAMELOT.items():
+            if string.upper() == value:
+                return MetadataParser.__parse_musical_key(key)
 
     @staticmethod
     def split_list(string: str) -> list[str]:

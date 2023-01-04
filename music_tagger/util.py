@@ -145,6 +145,9 @@ ANY_QUOTE_REGEX = re.compile(r"['\"].*?['\"]")
 
 REMIX_REGEX = re.compile(r"(?:\(|\[|-\s*)(.*?(?:" + r"|".join(__VERSIONS) + r")\s*)(?:\)|\]|\s+-|$)", re.I)
 
+CAMELOT_KEY_REGEX = re.compile(r"\b([1-9]|1[0-2])([ab])\b", re.I)
+KEY_REGEX = re.compile(r"\b([cdefgba][#♯b♭]?)\s*(minor|min|major|maj|m)?\b", re.I)
+
 MULTIPLE_SPACES_REGEX = re.compile(r"\s{2,}")
 EMPTY_BRACKETS_REGEX = re.compile(r"[*(\[)]\s*[\])*]")
 AFTER_DASH_REGEX = re.compile(r"[-–—]\s*(.+)")

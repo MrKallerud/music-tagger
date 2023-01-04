@@ -120,7 +120,6 @@ class Album:
     def __repr__(self) -> str:
         return self.get_name()
 
-
 class Artwork:
     def __init__(self, source: str | APIC) -> None:
         self.is_local = isinstance(source, APIC)
@@ -152,8 +151,25 @@ class Artwork:
         r.raise_for_status()
         return Image.open(io.BytesIO(r.content))
         
-class Key:
-    def __init__(self, key: str) -> None:
-        # TODO: Convert between camelot and musical key
-        self.musical = key
-        #self.camelot = key
+class Scale:
+    def __init__(self, key: str = None, pitch = None, is_major = None) -> None:
+        if key is None:
+            self.__pitch = pitch
+            self.__major = is_major
+        else:
+            self.__pitch, self.__major = Parser.parse_key(key)
+        
+        if self.__pitch is None or self.__major is None:
+            raise ValueError(f"'{key}' is not a valid scale format.")
+
+    def get_camelot_key(self) -> str:
+        return Parser._CAMELOT.get(self.get_musical_key())
+
+    def get_musical_key(self) -> str:
+        return Parser._PITCHES[self.__pitch] + ("maj" if self.__major else "min")
+
+    def __repr__(self) -> str:
+        return "<" + self.get_musical_key() + ">"
+
+if __name__ == "__main__":
+    print(Scale("9b"))
