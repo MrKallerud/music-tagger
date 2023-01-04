@@ -67,6 +67,7 @@ class MusicFile:
             if isinstance(value, str) and value.isdigit():
                 value = int(value)
                 data[key] = value
+            # Convert scale
 
         return {k: v for k, v in data.items() if v is not None}
     

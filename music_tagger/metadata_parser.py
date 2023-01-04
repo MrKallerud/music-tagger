@@ -260,7 +260,24 @@ class MetadataParser:
         return title, parts
 
     @staticmethod
-    def parse_key(string: str, as_string: bool = True) -> tuple[int, bool] | None:
+    def is_scale(string: str) -> bool:
+        return Regexes.KEY_REGEX.search(string) is not None or \
+            Regexes.CAMELOT_KEY_REGEX.search(string) is not None
+
+    @staticmethod
+    def parse_key(string: str, as_string: bool = True):
+        """Parses a string representation of a musical key.
+
+        Args:
+            string (str): The string representation of the key.
+            as_string (bool): If True, returns the pitch and mode as strings. If False, returns a Scale object.
+
+        Returns:
+            If as_string is True:
+                (str, bool): A tuple containing the pitch and mode.
+            If as_string is False:
+                Scale: A Scale object representing the parsed key.
+        """
         from music_tagger.track import Scale
         if not isinstance(string, str): return None, None
         string = MetadataParser.clean_string(string)
