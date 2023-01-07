@@ -105,6 +105,7 @@ __VERSIONS = [
     "Flip",
     "Mashup",
     "Mix",
+    "Radio Edit",
     "Remaster",
     "Remastered",
     "Remix",
@@ -143,7 +144,7 @@ WITH_REGEX = re.compile(r"(?:^|\(|\[)?\s*with(?:\.\s*|\s+)(.+?)\s*(?:\(|\)|\[|\]
 # DOUBLE_QUOTE_REGEX = re.compile(r'"(.*?)"')
 ANY_QUOTE_REGEX = re.compile(r"['\"].*?['\"]")
 
-REMIX_REGEX = re.compile(r"(?:\(|\[|-\s*)(.*?(?:" + r"|".join(__VERSIONS) + r")\s*)(?:\)|\]|\s+-|$)", re.I)
+REMIX_REGEX = re.compile(r"(?:[\[\]()-]|-\s*)(.*?(?:" + "|".join(__VERSIONS) + ")\s*)(?:\)|\])?", re.I)
 
 CAMELOT_KEY_REGEX = re.compile(r"\b([1-9]|1[0-2])([ab])\b", re.I)
 KEY_REGEX = re.compile(r"\b([cdefgba][#♯b♭]?)\s*(minor|min|major|maj|m)?\b", re.I)

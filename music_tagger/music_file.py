@@ -95,6 +95,7 @@ class MusicFile:
         except TypeError: parsed_artists = Parser()
 
         metadata, metadata[Fields.ALBUM] = self.__get_album(metadata.copy())
+        metadata[Fields.DURATION] = self.duration
 
         for parser in [parsed_filename, parsed_title, parsed_artists]:
             for key, value in parser.metadata.items():

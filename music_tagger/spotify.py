@@ -50,32 +50,21 @@ class SpotifyAPI:
 
     @staticmethod
     def get_track(data: dict[str, any]) -> Track:
-        original_title = data.get("name")
-        _, extended = Parser.parse_extended(original_title)
-        title, features = Parser.parse_feature(original_title)
-        title, withs = Parser.parse_with(title)
-        title, versions = Parser.parse_versions(title)
-        title, details = Parser.parse_dash_version(title)
+        parser = Parser(" - " + data.get("name"))
 
-        return Track({
-            Fields.ALBUM: SpotifyAPI.get_album(data.get("album")),
-            Fields.ARTISTS: [SpotifyAPI.get_artist(artist) for artist in data.get("artists")],
-            Fields.DURATION: data.get("duration_ms"),
-            Fields.EXPLICIT: data.get("explicit"),
-            Fields.EXTENDED: extended,
-            Fields.ORIGINALFILENAME: original_title,
-            Fields.FEATURING: features,
-            Fields.ID: data.get("id"),
-            Fields.ISRC: data.get("external_ids").get("isrc"),
-            Fields.NAME: title,
-            Fields.PLATFORM: SpotifyAPI.NAME,
-            Fields.POPULARITY: data.get("popularity"),
-            Fields.VERSIONS: versions,
-            Fields.TRACK_NUMBER: data.get("track_number"),
-            Fields.URL: SpotifyAPI.WEBURL_BASE + "/track/" + data.get("id"),
-            Fields.DETAILS: details,
-            Fields.WITH: withs,
-        })
+        parser.metadata[Fields.ALBUM] = SpotifyAPI.get_album(data.get("album"))
+        parser.metadata[Fields.ARTISTS] = [SpotifyAPI.get_artist(artist) for artist in data.get("artists")]
+        parser.metadata[Fields.DURATION] = data.get("duration_ms")
+        parser.metadata[Fields.EXPLICIT] = data.get("explicit")
+        parser.metadata[Fields.ORIGINALFILENAME] = data.get("name")
+        parser.metadata[Fields.ID] = data.get("id")
+        parser.metadata[Fields.ISRC] = data.get("external_ids").get("isrc")
+        parser.metadata[Fields.PLATFORM] = SpotifyAPI.NAME
+        parser.metadata[Fields.POPULARITY] = data.get("popularity")
+        parser.metadata[Fields.TRACK_NUMBER] = data.get("track_number")
+        parser.metadata[Fields.URL] = SpotifyAPI.WEBURL_BASE + "/track/" + data.get("id")
+
+        return parser.as_track()
 
     @staticmethod
     def get_artist(data: dict[str, any]) -> Artist:
@@ -366,5 +355,5 @@ if __name__ == "__main__":
     # Quick tests
     print(SpotifyAPI.get_access_token())
     print()
-    for result in SpotifyAPI.search("martin garrix loop", limit=50):
-        print(result)
+    for result in SpotifyAPI.search(track="loop", artist="martin garrix", limit=1):
+        print(result.get())

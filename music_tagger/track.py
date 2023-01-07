@@ -37,7 +37,7 @@ class Track:
                 name += f" {brackets[0]}{artists}{version}{brackets[1]}"
             brackets = "[]"
 
-        if extended and extended not in name:
+        if extended is not None and extended not in name:
             name += " " + brackets[0] + f"{extended} Mix" + brackets[1]
 
         return Parser.clean_string(name)
@@ -56,13 +56,13 @@ class Track:
 
         return Parser.format_list(all_artists)
 
+    def compare_to(self, other) -> float:
+        from music_tagger.matcher import Matcher
+        return Matcher.compare_tracks(self, other)
+
     def __eq__(self, other: object) -> bool:
-        return not (not isinstance(other, self.__class__) or \
-            self.get(Fields.ISRC) != other.get(Fields.ISRC) or \
-            self.get(Fields.ID) != other.get(Fields.ID) or \
-            self.get(Fields.NAME) != other.get(Fields.NAME) or \
-            self.get(Fields.ARTISTS) != other.get(Fields.ARTISTS) or \
-            self.get(Fields.VERSIONS) != other.get(Fields.VERSIONS))
+        from music_tagger.matcher import Matcher
+        return self.compare_to(other) > Matcher.THRESHOLD
 
     def __hash__(self) -> int:
         if self.get(Fields.ISRC): return hash(self.get(Fields.ISRC))
@@ -88,8 +88,14 @@ class Artist:
     def get_name(self) -> str:
         return self.get(Fields.NAME)
 
+    def compare_to(self, other) -> float:
+        from music_tagger.matcher import Matcher
+        if not isinstance(other, self.__class__): return 0
+        return Matcher._compare_strings(self.get_name(), other.get_name())
+
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
+        from music_tagger.matcher import Matcher
+        return self.compare_to(other) > Matcher.THRESHOLD
 
     def __hash__(self) -> int:
         return hash(self.get_name().lower())
@@ -111,8 +117,15 @@ class Album:
     def get_name(self) -> str:
         return self.get(Fields.NAME)
 
+    def compare_to(self, other) -> float:
+        from music_tagger.matcher import Matcher
+        if not isinstance(other, self.__class__): return 0
+        # TODO: Compare release dates
+        return Matcher._compare_strings(self.get_name(), other.get_name())
+
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__) and self.get_name().lower() == self.get_name().lower()
+        from music_tagger.matcher import Matcher
+        return self.compare_to(other) > Matcher.THRESHOLD
 
     def __hash__(self) -> int:
         return hash(self.get_name().lower())

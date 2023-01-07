@@ -176,9 +176,10 @@ class MetadataParser:
         from music_tagger.track import Artist
 
         title = string
-        #if Regexes.DASH_SPLITTER_REGEX.search(string): string = Regexes.AFTER_DASH_REGEX.search(string).group(1)
+        if Regexes.DASH_SPLITTER_REGEX.search(string): title = Regexes.AFTER_DASH_REGEX.search(string).group(1)
+
         versions = {}
-        for match in Regexes.REMIX_REGEX.finditer(string):
+        for match in Regexes.REMIX_REGEX.finditer(title):
             line = match.group(1)
             if re.search(r"[()\[\]-]", line): continue
             year = [str(y) for y in Regexes.YEAR_REGEX.findall(line)]
@@ -187,7 +188,7 @@ class MetadataParser:
             quote = [str(q) for q in Regexes.ANY_QUOTE_REGEX.findall(line)]
             for q in quote: line = re.sub(q, "", line, flags=re.I)
 
-            version = [str(word).capitalize() for word in Regexes.VERSION_REGEX.findall(line)]
+            version = [str(word).title() for word in Regexes.VERSION_REGEX.findall(line)]
             for v in version: line = re.sub(v, "", line, flags=re.I)
             for unnessecary in ["Edit", "Version", "Mix"]:
                 if len(version) == 1: break
