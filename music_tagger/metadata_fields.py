@@ -7,7 +7,7 @@ class MetadataFields:
     DATE = "date"
     DESCRIPTION = "comment"
     DETAILS = "version"
-    DOWNLOAD = "buy_url"
+    DOWNLOAD = "download"
     DURATION = "length"
     EXPLICIT = "itunesadvisory"
     EXTENDED = "extended"

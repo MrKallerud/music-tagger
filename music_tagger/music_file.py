@@ -88,37 +88,33 @@ class MusicFile:
     def as_track(self) -> Track:
         metadata: dict[str, any] = self.get_metadata()
 
-        parsed_filename = Parser(self.get_filename(), as_strings=False)
-        try: parsed_title = Parser(metadata.get(Fields.NAME), as_strings=False)
-        except TypeError: parsed_title = Parser()
-        try: parsed_artists = Parser(metadata.get(Fields.ARTISTS) + " - " if metadata.get(Fields.ARTISTS) else [], as_strings=False)
-        except TypeError: parsed_artists = Parser()
+        # Parse metadata from filename, title and artists metadata
+        parser = Parser(self.get_filename(), as_strings=False)
+        name = metadata.get(Fields.NAME)
+        artists = metadata.get(Fields.ARTISTS)
+        if name and artists: parser += Parser(artists + " - " + name, as_strings=False)
+        elif artists: parser += Parser(artists, as_strings=False)
+        elif name: parser += Parser(name, as_strings=False)
 
+        # Format metadata TODO: Parse key and urls from comment
         metadata, metadata[Fields.ALBUM] = self.__get_album(metadata.copy())
+        if metadata.get(Fields.ISRC): metadata[Fields.ISRC] = metadata.get(Fields.ISRC).upper()
+
+        # Filter parser
+        for key, value in parser.metadata.items():
+            if value is None: continue
+            if isinstance(value, Sequence) and len(value) == 0: continue
+            metadata[key] = value
+
+        # Add original filename and duration
         metadata[Fields.DURATION] = self.duration
-
-        for parser in [parsed_filename, parsed_title, parsed_artists]:
-            for key, value in parser.metadata.items():
-                if value is None: continue
-                if isinstance(value, Sequence) and len(value) == 0: continue
-                # TODO: Merge lists
-                #existing = metadata.get(key)
-                # if isinstance(existing, (list, dict)) and existing.__class__ == value.__class__:
-                #     for element in value:
-                #         if metadata[key] is None: metadata[key] = []
-                #         if element in existing: continue
-                #         metadata[key] = metadata[key].append(element)
-
-                metadata[key] = value
-
         metadata[Fields.ORIGINALFILENAME] = self.get_filename()
-
         return Track(metadata)
 
     def __get_album(self, data: dict[str, any]) -> tuple[dict, Album]:
-        name = self.__first(data.pop(Fields.ALBUM))
+        name = self.__first(data.pop(Fields.ALBUM, data.get(Fields.NAME)))
         artists = Parser.split_list(",".join(data.pop(Fields.ALBUM_ARTIST, [])))
-        date = Parser.parse_date(self.__first(data.pop(Fields.DATE)))
+        date = Parser.parse_date(self.__first(data.pop(Fields.DATE, None)))
 
         return data, Album({
             Fields.NAME: name,
@@ -170,10 +166,14 @@ class MusicFile:
         return self.to_string()
 
 if __name__ == "__main__":
-    for file in Path("/Users/ruud/Desktop/låter").iterdir():
-        if file.suffix not in AUDIO_FORMATS: continue
-        if not '4' in file.name: continue
+    import sys
+    sys.path.append('./')
+    import tests.test_files_index as Test
+
+    for file in Test.all_test_files():
+        if "I Could Be The One" not in file.name: continue
+        print(file.name)
         file = MusicFile(file)
         track = file.as_track()
-        print(f"{track}")
-        #print(f"{track.get()}")
+        print(track)
+        print(track.get())

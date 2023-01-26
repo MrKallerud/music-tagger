@@ -70,6 +70,7 @@ class MetadataParser:
         string, self.metadata[fields.EXTENDED] = self.parse_extended(string)
         string, self.metadata[fields.FEATURING] = self.parse_feature(string, as_strings)
         string, self.metadata[fields.WITH] = self.parse_with(string, as_strings)
+        string = self.__clean_ignore(string)
         string, self.metadata[fields.VERSIONS] = self.parse_versions(string, as_strings)
         string, self.metadata[fields.ARTISTS] = self.parse_artists(string, as_strings)
         string, self.metadata[fields.NAME] = self.parse_title(string)
@@ -79,6 +80,11 @@ class MetadataParser:
     def as_track(self):
         from music_tagger.track import Track
         return Track(self.metadata)
+
+    def __add__(self, other: object):
+        if not isinstance(other, MetadataParser): raise TypeError(f"Can only add MetadataParser with MetadataParser, not {other.__class__.__name__}")
+        self.metadata.update(other.metadata)
+        return self
 
     @staticmethod
     def parse_date(string: str, format: str = None) -> datetime | None:
@@ -176,6 +182,7 @@ class MetadataParser:
         from music_tagger.track import Artist
 
         title = string
+        # Remove artists
         if Regexes.DASH_SPLITTER_REGEX.search(string): title = Regexes.AFTER_DASH_REGEX.search(string).group(1)
 
         versions = {}
@@ -200,11 +207,25 @@ class MetadataParser:
             if as_strings: versions[version] = artists
             else: versions[version] = [Artist(artist) for artist in artists]
 
-            title = title.replace(match.group(0), "").strip()
+            string = string.replace(match.group(0), "").strip()
 
         if versions.get("Mix") == []: del versions["Mix"]
         if versions == {}: return string, None
-        return title, versions
+        return string, versions
+
+    @staticmethod
+    def __clean_ignore(string: str) -> str:
+        # Search after brackets
+        suffix = re.search(r"[^\])]+$", string)
+        if suffix and Regexes.IGNORE_REGEX.search(suffix.group(0)):
+            string = string.replace(suffix.group(0), "")
+
+        # Search brackets
+        for match in Regexes.BRACKET_REGEX.finditer(string):
+            if not Regexes.IGNORE_REGEX.search(match.group(0)): continue
+            string = string.replace(str(match.group(0)), "")
+
+        return string
 
     @staticmethod
     def parse_feature(string: str, as_strings: bool = True) -> tuple[str, list[str]]:
@@ -387,6 +408,6 @@ def embed_artwork(filepath: Path, url: str, size: int = 800, no_overwrite: bool 
     tags.save()
 
 if __name__ == "__main__":
-    parser = MetadataParser("Sak Noel - Loca People (DON PAOLO Bootleg EDIT)", as_strings=False)
-    print(parser)
+    parser = MetadataParser(" - Cold Heart - Claptone Remix", as_strings=False)
+    #print(parser)
     print(parser.as_track().get())

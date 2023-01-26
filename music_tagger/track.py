@@ -7,8 +7,18 @@ from music_tagger.metadata_parser import MetadataParser as Parser
 
 
 class Track:
-    def __init__(self, data: dict[str, any]):
-        self.__metadata = {k: v for k, v in data.items() if v is not None}
+    def __init__(self, data: dict[str, any] = None):
+        if data is None: self.__metadata = {}; return None
+        if isinstance(data, str): self.__metadata = {Fields.NAME: data}
+        else: self.__metadata = {k: v for k, v in data.items() if v is not None}
+
+        # Type tests
+        if self.__metadata.get(Fields.ARTISTS):
+            assert isinstance(self.__metadata.get(Fields.ARTISTS)[0], Artist)
+        if self.__metadata.get(Fields.ALBUM):
+            assert isinstance(self.__metadata.get(Fields.ALBUM), Album)
+            if self.__metadata.get(Fields.IMAGE):
+                assert isinstance(self.__metadata.get(Fields.IMAGE), Artwork)
 
     def get(self, key: str = None, default = None):
         if not key: return self.__metadata
@@ -16,7 +26,7 @@ class Track:
         return item if item else default
 
     def get_name(self) -> str:
-        name = self.get(Fields.NAME)
+        name = self.get(Fields.NAME, "")
         extended = self.get(Fields.EXTENDED)
         brackets = "()"
 
@@ -29,7 +39,7 @@ class Track:
             brackets = "[]"
 
         for version, artists in self.get(Fields.VERSIONS, {}).items():
-            artists = Parser.format_list(artists)
+            artists = Parser.format_list([artist.get_name() for artist in artists])
             if artists: artists += " "
             if extended and extended not in version and extended not in name:
                 name += f" {brackets[0]}{artists}{extended} {version}{brackets[1]}"
@@ -43,7 +53,7 @@ class Track:
         return Parser.clean_string(name)
 
     def get_artists(self) -> str:
-        all_artists = []
+        all_artists: list[Artist] = []
 
         all_artists.extend(self.get(Fields.ARTISTS, []))
         all_artists.extend(self.get(Fields.WITH, []))
@@ -51,10 +61,23 @@ class Track:
         for _, artists in self.get(Fields.VERSIONS, {}).items():
             all_artists.extend(artists)
 
-        all_artists = [str(artist) for artist in all_artists]
+        all_artists = [artist.get_name() for artist in all_artists]
         all_artists = list(dict.fromkeys(all_artists))
 
         return Parser.format_list(all_artists)
+
+    def get_search_strings(self) -> list[str]:
+        """Returns a list of strings that can be used to locate the track online."""
+        search = []
+        if self.get(Fields.ORIGINALFILENAME):
+            search.append(self.get(Fields.ORIGINALFILENAME))
+        if self.get_artists() and self.get_name():
+            search.append(self.get_artists() + " " + self.get_name())
+        if len(self.get(Fields.ARTISTS, [])) > 0 and self.get_name():
+            search.append(self.get(Fields.ARTISTS)[0].get_name() + " " + self.get_name())
+        if self.get_name(): search.append(self.get_name())
+
+        return search
 
     def compare_to(self, other) -> float:
         from music_tagger.matcher import Matcher
@@ -70,9 +93,9 @@ class Track:
         return hash(str(self))
 
     def __repr__(self) -> str:
-        return Parser.clean_string(
-            (self.get_artists() if self.get_artists() else "") + " - " +
-            (self.get_name() if self.get_name() else ""))
+        return "<" + self.get(Fields.PLATFORM, "track").lower() + ":" + Parser.clean_string(
+            (self.get_artists() if self.get_artists() else "N/A") + " - " +
+            (self.get_name() if self.get_name() else "N/A")) + ">"
 
 class Artist:
     def __init__(self, data: dict[str, any] | str):
@@ -90,7 +113,7 @@ class Artist:
 
     def compare_to(self, other) -> float:
         from music_tagger.matcher import Matcher
-        if not isinstance(other, self.__class__): return 0
+        if not isinstance(other, Artist): return 0
         return Matcher._compare_strings(self.get_name(), other.get_name())
 
     def __eq__(self, other: object) -> bool:
@@ -101,12 +124,11 @@ class Artist:
         return hash(self.get_name().lower())
 
     def __repr__(self) -> str:
-        return self.get_name()
+        return "<artist:" + (self.get_name() if self.get_name() else "N/A") + ">"
 
 class Album:
     def __init__(self, data: dict[str, any] | str):
-        if isinstance(data, str):
-            data = {Fields.NAME: data}
+        if isinstance(data, str): data = {Fields.NAME: data}
         self.__metadata = {k: v for k, v in data.items() if v is not None}
 
     def get(self, key: str = None, default = None):
@@ -131,7 +153,7 @@ class Album:
         return hash(self.get_name().lower())
 
     def __repr__(self) -> str:
-        return self.get_name()
+        return "<album:" + self.get_name() if self.get_name() else "N/A" + ">"
 
 class Artwork:
     def __init__(self, source: str | APIC) -> None:
@@ -163,6 +185,9 @@ class Artwork:
         r = requests.get(url)
         r.raise_for_status()
         return Image.open(io.BytesIO(r.content))
+
+    def __repr__(self) -> str:
+        return "<artwork:" + self.__source + ">"
         
 class Scale:
     def __init__(self, key: str = None, pitch = None, is_major = None) -> None:
@@ -182,7 +207,7 @@ class Scale:
         return Parser._PITCHES[self.__pitch] + ("maj" if self.__major else "min")
 
     def __repr__(self) -> str:
-        return "<" + self.get_musical_key() + ">"
+        return "<scale:" + self.get_musical_key() + ">"
 
 if __name__ == "__main__":
     print(Scale("9b"))

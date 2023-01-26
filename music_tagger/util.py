@@ -53,6 +53,7 @@ __GENRES = [
     "Jazz",
     "Jazz+Funk",
     "Jungle",
+    "Latin",
     "Lo-Fi",
     "Meditative",
     "Metal",
