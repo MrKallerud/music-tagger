@@ -7,10 +7,8 @@ from music_tagger.soundcloud import SoundCloudAPI
 from music_tagger.spotify import SpotifyAPI
 from music_tagger.track import Track, Artist, Album
 from music_tagger.metadata_fields import MetadataFields as Fields
+from music_tagger import Log, Color
 
-class MatchError(Exception):
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
 
 class Matcher:
     THRESHOLD = 0.9
@@ -20,13 +18,12 @@ class Matcher:
     api = SpotifyAPI | SoundCloudAPI
 
     @staticmethod
-    def identify(music_file: MusicFile, apis: list[api] = [SpotifyAPI, SoundCloudAPI]) -> tuple[Track, float]:
+    def identify(music_file: MusicFile, apis: list[api] = [SpotifyAPI, SoundCloudAPI]) -> tuple[Track, float] | None:
         """Searches through the APIs to find the best match."""
         track = music_file.as_track()
 
         # Iterate through all the apis and collect the best matches
         matches = {}
-        potential_matches = {}
         for api in apis:
             logging.info(f"Searching {api.NAME}...")
             for search in track.get_search_strings():
@@ -36,31 +33,23 @@ class Matcher:
                 for result in results:
                     logging.debug(result)
                     ratio = track.compare_to(result)
+                    if ratio > Matcher.THRESHOLD: return result, ratio
                     if ratio < Matcher.__MIN_THRESHOLD: continue
                     matches[result] = ratio
-                    # if ratio >= Matcher.THRESHOLD:
-                    #     matches[result] = ratio
-                    # else: potential_matches[result] = ratio
-                #return
 
-        # Log results
-        matches_info = "Matches:"
-        for match, ratio in matches.items():
-            matches_info += f"\n\t{int(ratio * 100)}% - " + str(match)
-        #logging.info(matches_info)
-        matches_info = "Potential matches:"
-        for match, ratio in potential_matches.items():
-            matches_info += f"\n\t{int(ratio * 100)}% - " + str(match)
-        #logging.info(matches_info)
 
         for track, ratio in sorted(matches.items(), key=lambda x: x[1], reverse=True):
             logging.info(f"{int(ratio * 100)}%".rjust(3) + f" - {track}")
 
         # Return best match
-        return list(matches.keys())
+        if matches != {}: return list(matches.items())[0]
 
-        # Let user select from potential match
-        
+        # TODO: Let user select from potential match
+        # Log results
+        matches_info = "Matches:"
+        for match, ratio in matches.items():
+            matches_info += f"\n\t{int(ratio * 100)}% - " + str(match)
+        logging.debug(matches_info)
 
     @staticmethod
     def compare_tracks(this: Track, other: Track) -> float:
@@ -111,6 +100,7 @@ class Matcher:
         album_rate = None
         if this.get(Fields.ALBUM) is not None and other.get(Fields.ALBUM) is not None:
             album_rate = this.get(Fields.ALBUM).compare_to(other.get(Fields.ALBUM))
+        if album_rate is not None and album_rate < Matcher.__MIN_THRESHOLD: album_rate = 0
 
         # Extended
         extended_rate = None
@@ -119,6 +109,7 @@ class Matcher:
             if extended_rate is not None and extended_rate < Matcher.THRESHOLD: extended_rate = 0
         
         # Version
+        version_rate = None
         if this.get(Fields.VERSIONS) and other.get(Fields.VERSIONS):
             # Version
             this_version = this.get(Fields.VERSIONS)
@@ -134,7 +125,6 @@ class Matcher:
             # Total
             if artist_rate is None: version_rate = type_rate
             else: version_rate = (type_rate + artist_rate) / 2
-        else: version_rate = None
 
         # esult
         rates = {
@@ -189,13 +179,20 @@ class Matcher:
         if not isinstance(str1, str) or not isinstance(str2, str): return None
         return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
+    @staticmethod
+    def print_match(match: Track, ratio: float):
+        color = Color.YELLOW if ratio > Matcher.__MIN_THRESHOLD else Color.RED
+        if ratio > 0.8: color = Color.GREEN
+        Log.info(f"{ratio:.1%}: {match.get_artists()} - {match.get_name()}", "match", color)
+
 if __name__ == "__main__":
     import sys
     sys.path.append('./')
     import tests.test_files_index as Test
-    logging.basicConfig(level=logging.DEBUG, format="[%(levelname)s]\t%(message)s")
+    logging.basicConfig(level=logging.DEBUG)
 
     for file in Test.all_test_files():
-        if file != Test.ICBTO: continue
+        #if file != Test.FAKE_ID: continue
         music_file = MusicFile(file)
         result = Matcher.identify(music_file)
+        logging.info(result)

@@ -3,8 +3,7 @@ from os import mkdir
 from os.path import exists
 from pathlib import Path
 
-from music_tagger import colors as Color
-from music_tagger.matcher import MatchError
+from music_tagger.log import Log, Color
 from music_tagger.music_file import MusicFile
 from music_tagger.matcher import Matcher
 from music_tagger.util import AUDIO_FORMATS, FOLDER
@@ -12,9 +11,13 @@ from music_tagger.util import AUDIO_FORMATS, FOLDER
 file_count = 0
 identified_files = 0
 
+### CONSTANTS
+TEXT_INDENT = 9
+
 def main():
     if not exists(FOLDER): mkdir(FOLDER)
 
+    ### ARGUMENTS
     parser = ArgumentParser()
 
     # Add url
@@ -31,10 +34,16 @@ def main():
     args = parser.parse_args()
     path = Path(args.file)
 
+
+    ### LOGGER CONFIG
+    Log.config(Log.WARNING)
+
+
+    ### DO TASKS
     find_and_tag(path, args)
 
-    print(f"\n{Color.BOLD}{Color.OKGREEN}Finished!{Color.ENDC}", end='')
-    print(f" - Identified {identified_files}/{file_count} files.")
+    #print(f"\n{Color.BOLD}{Color.OKGREEN}Finished!{Color.ENDC}", end='')
+    #print(f" - Identified {identified_files}/{file_count} files.")
 
 def find_and_tag(path: Path, args):
     if path.is_file(): return tag_music(path, args)
@@ -43,27 +52,32 @@ def find_and_tag(path: Path, args):
 
 def tag_music(path: Path, args):
     if path.suffix not in AUDIO_FORMATS:
-        print(path.name, "is not a supported filetype.\n")
-        return
+        Log.warning(f"{path.name} is not a supported filetype"); return
+
+    # Create MusicFile
     file = MusicFile(path)
-    print(f"\n{Color.BOLD}{file}{Color.ENDC}")
+    Log.info(f"{Color.BOLD}{file}{Color.CLEAR}")
+
+    # TODO: Handle counting better
     global file_count, identified_files
-    
     file_count += 1
 
-    try: 
-        Matcher.print_match(*file.identify(suppress = args.suppress))
-        identified_files += 1
-    except MatchError as e:
-        print(f"{Color.WARNING}{Color.BOLD}NO MATCH:{Color.ENDC} {e}")
-    except Exception as e:
-        print(f"{Color.FAIL}{Color.BOLD}ERROR:{Color.ENDC} {e}")
+    result = Matcher.identify(file)
+    if result:
+        identity, ratio = result
+        Matcher.print_match(identity, ratio)
+    else: Log.warning("No match")
 
-    if args.simulate: return
+    # try:
+    #     Matcher.print_match(*file.identify(suppress = args.suppress))
+    #     identified_files += 1
+    # except Exception as e: logging.error(e.with_traceback())
 
-    if args.format:
-        format = args.format if args.format.startswith('.') else f".{args.format}"
-        if file.get_ext() != format:
-            file.convert(format, args.no_overwrite)
+    # if args.simulate: return
 
-    file.write_metadata(args.no_overwrite)
+    # if args.format:
+    #     format = args.format if args.format.startswith('.') else f".{args.format}"
+    #     if file.get_ext() != format:
+    #         file.convert(format, args.no_overwrite)
+
+    # file.write_metadata(args.no_overwrite)

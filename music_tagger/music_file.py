@@ -49,15 +49,14 @@ class MusicFile:
                 value = None
                 data[key] = value
                 continue
-            # Convert comments
-            if isinstance(value, ID3v2Comment):
-                data[Fields.DESCRIPTION] = value.text
-                continue
-            # Convert User fields
-            if isinstance(value, ID3v2UserText):
-                data[key] = None
-                data[value.description] = value.text
-                continue
+            # # Convert comments
+            # if isinstance(value, ID3v2Comment):
+            #     data[Fields.DESCRIPTION] = value.text
+            #     continue
+            # # Convert User fields
+            # if isinstance(value, ID3v2UserText):
+            #     data[value.description] = value.text
+            #     continue
             # Convert dates
             if isinstance(value, str) and Parser.is_date(value):
                 value = Parser.parse_date(value)
